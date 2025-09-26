@@ -22,7 +22,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [stepProducts, setStepProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
-  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart } = useCart();
+  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart, isInitialized } = useCart();
 
   // Refs for mobile slider auto-scroll
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -446,6 +446,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                                 onAddToCart={handleProductAddToCart}
                                 availableProducts={stepProducts}
                                 showBaseProductSelector={false}
+                                isCartInitialized={isInitialized}
                               />
                             </div>
                           ))}

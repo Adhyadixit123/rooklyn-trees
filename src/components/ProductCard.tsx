@@ -11,9 +11,10 @@ interface ProductCardProps {
   onAddToCart: (product: Product, variantId: string) => void;
   availableProducts?: Product[];
   showBaseProductSelector?: boolean;
+  isCartInitialized?: boolean;
 }
 
-export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true, isCartInitialized = true }: ProductCardProps) {
   // Only use variant selection if there are multiple variants and a product is selected (not none)
   const hasMultipleVariants = product.variants.length > 1;
 
@@ -29,7 +30,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
   const isProductSelected = selectedBaseProductId !== null;
 
   const handleAddToCart = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || !isCartInitialized) return;
     setIsSubmitting(true);
 
     try {
@@ -223,13 +224,18 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             onClick={handleAddToCart}
             className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium py-3 transition-all duration-normal shadow-primary"
             size="lg"
-            disabled={(showBaseProductSelector ? !isProductSelected : false) || !selectedVariant || isSubmitting}
+            disabled={(showBaseProductSelector ? !isProductSelected : false) || !selectedVariant || isSubmitting || !isCartInitialized}
             aria-busy={isSubmitting}
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Selecting...
+              </>
+            ) : !isCartInitialized ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Initializing...
               </>
             ) : (
               <>

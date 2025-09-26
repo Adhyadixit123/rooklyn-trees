@@ -15,7 +15,7 @@ type AppState = 'product' | 'checkout' | 'complete';
 
 const Index = () => {
   const [appState, setAppState] = useState<AppState>('product');
-  const { updateProductSelection, setAllAddOns, isLoading, error } = useCart();
+  const { updateProductSelection, setAllAddOns, isLoading, error, isInitialized } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -358,6 +358,7 @@ const Index = () => {
                       onAddToCart={handleAddToCart}
                       availableProducts={products}
                       showBaseProductSelector={true}
+                      isCartInitialized={isInitialized}
                     />
                   </div>
                 ) : (
