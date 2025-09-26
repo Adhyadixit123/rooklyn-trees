@@ -53,14 +53,17 @@ export function useCart() {
       setError(null);
 
       try {
+        // Get the current cart ID from state (which was initialized from localStorage)
+        const currentCartId = cartId;
+        
         // If we have a cart ID from localStorage, try to load it
-        if (cartId) {
-          console.log('Loading existing cart:', cartId);
-          const cart = await ShopifyCartService.getCart(cartId);
+        if (currentCartId) {
+          console.log('Loading existing cart:', currentCartId);
+          const cart = await ShopifyCartService.getCart(currentCartId);
           if (cart) {
             console.log('Cart loaded successfully');
             setShopifyCart(cart);
-            saveCartData(cartId, cart);
+            saveCartData(currentCartId, cart);
           } else {
             console.log('Cart not found, will create new cart on first add');
             // Clear invalid cart ID
@@ -68,6 +71,8 @@ export function useCart() {
             localStorage.removeItem('shopify_cart_id');
             localStorage.removeItem('shopify_cart_data');
           }
+        } else {
+          console.log('No existing cart found, will create new cart on first add');
         }
       } catch (error) {
         console.error('Error initializing cart:', error);
@@ -83,7 +88,7 @@ export function useCart() {
     };
 
     initializeCart();
-  }, [cartId, isInitialized]);
+  }, [isInitialized, saveCartData]);
 
   const loadCart = useCallback(async (id: string) => {
     try {
@@ -149,8 +154,15 @@ export function useCart() {
           // Add a small delay to ensure the cart is updated on Shopify's side
           await new Promise(resolve => setTimeout(resolve, 500));
           await loadCart(cartId);
-          console.log('Cart data refreshed successfully');
-          setRetryCount(0); // Reset retry count on success
+
+          // Validate that the product was actually added to the cart
+          const updatedCart = await ShopifyCartService.getCart(cartId);
+          if (updatedCart && updatedCart.lines && updatedCart.lines.edges.length > 0) {
+            console.log('Cart data refreshed successfully - product confirmed in cart');
+            setRetryCount(0); // Reset retry count on success
+          } else {
+            throw new Error('Product was not found in cart after adding');
+          }
         } else {
           throw new Error('Failed to add product to cart');
         }
@@ -163,8 +175,15 @@ export function useCart() {
           // Add a small delay to ensure the cart is created on Shopify's side
           await new Promise(resolve => setTimeout(resolve, 500));
           await loadCart(newCartId);
-          console.log('Cart data loaded successfully');
-          setRetryCount(0); // Reset retry count on success
+
+          // Validate that the product was actually added to the cart
+          const updatedCart = await ShopifyCartService.getCart(newCartId);
+          if (updatedCart && updatedCart.lines && updatedCart.lines.edges.length > 0) {
+            console.log('Cart data loaded successfully - product confirmed in cart');
+            setRetryCount(0); // Reset retry count on success
+          } else {
+            throw new Error('Product was not found in newly created cart');
+          }
         } else {
           throw new Error('Failed to create cart');
         }
@@ -330,6 +349,78 @@ export function useCart() {
     return shopifyCart?.checkoutUrl || null;
   }, [shopifyCart]);
 
+  const validateProductInCart = useCallback(async (productId: string, variantId: string): Promise<boolean> => {
+    console.log('=== validateProductInCart called ===');
+    console.log('Product ID:', productId);
+    console.log('Variant ID:', variantId);
+    console.log('Current shopifyCart:', shopifyCart);
+
+    if (!shopifyCart || !shopifyCart.lines || !shopifyCart.lines.edges) {
+      console.log('❌ No cart or cart lines available');
+      return false;
+    }
+
+    console.log('Cart lines count:', shopifyCart.lines.edges.length);
+
+    // Check if the product exists in the cart
+    const productInCart = shopifyCart.lines.edges.some((edge: any) => {
+      const merchandise = edge.node.merchandise;
+      console.log('Checking line item:', {
+        lineId: edge.node.id,
+        merchandiseId: merchandise.id,
+        merchandiseTitle: merchandise.title,
+        productId: merchandise.product?.id,
+        productTitle: merchandise.product?.title,
+        quantity: edge.node.quantity
+      });
+
+      const matchesVariant = merchandise.id === variantId;
+      const matchesProduct = merchandise.product?.id === productId;
+
+      console.log('Match check:', { matchesVariant, matchesProduct, variantId, productId });
+
+      return matchesVariant || matchesProduct;
+    });
+
+    if (!productInCart) {
+      console.warn('❌ Product not found in cart:', { productId, variantId, cartItems: shopifyCart.lines.edges.length });
+      return false;
+    }
+
+    console.log('✅ Product confirmed in cart:', { productId, variantId });
+    return true;
+  }, [shopifyCart]);
+
+  const refreshCartState = useCallback(async (): Promise<boolean> => {
+    console.log('=== refreshCartState called ===');
+    console.log('Current cartId:', cartId);
+
+    if (!cartId) {
+      console.warn('❌ No cart ID available for refresh');
+      return false;
+    }
+
+    try {
+      console.log('Refreshing cart state...');
+      const updatedCart = await ShopifyCartService.getCart(cartId);
+      console.log('Updated cart from Shopify:', updatedCart);
+
+      if (updatedCart) {
+        console.log('✅ Cart refreshed successfully, updating state');
+        setShopifyCart(updatedCart);
+        saveCartData(cartId, updatedCart);
+        console.log('✅ Cart state updated in React');
+        return true;
+      } else {
+        console.warn('❌ Failed to refresh cart state - cart not found');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing cart state:', error);
+      return false;
+    }
+  }, [cartId, saveCartData]);
+
   const isExternalServiceAvailable = useCallback(async (): Promise<boolean> => {
     try {
       // Simple test to check if external Shopify services are responding
@@ -358,6 +449,8 @@ export function useCart() {
     getOrderSummary,
     getCheckoutUrl,
     clearCartData,
+    validateProductInCart,
+    refreshCartState,
     isExternalServiceAvailable,
     isLoading,
     error,

@@ -270,17 +270,16 @@ const Index = () => {
   };
 
   const handleAddToCart = async (product: Product, variantId: string) => {
-    // Instantly advance to checkout - don't make the user wait!
-    setAppState('checkout');
-
-    // Process cart addition in the background - user doesn't need to wait for this
+    // Ensure the cart is created and saved before navigating to checkout
+    // This prevents CheckoutFlow from initializing without a cart and creating a new one
     try {
       await updateProductSelection(product, variantId);
-      console.log('Base product added to cart successfully in background');
+      console.log('Base product added to cart successfully');
     } catch (error) {
-      console.error('Error adding base product to cart (non-blocking):', error);
-      // Don't interrupt the user flow - they can continue with the checkout process
-      // The cart sync will happen when they reach the final step
+      console.error('Error adding base product to cart:', error);
+      // Even on error, proceed to checkout to allow user to retry from there
+    } finally {
+      setAppState('checkout');
     }
   };
 

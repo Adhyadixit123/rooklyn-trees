@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Star, ShoppingCart, Loader2 } from 'lucide-react';
 import { Product } from '@/types/checkout';
+import { ShopifyCartService } from '@/services/shopifyService';
 
 interface ProductCardProps {
   product: Product;
@@ -24,30 +25,35 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
   const [selectedBaseProductId, setSelectedBaseProductId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ref to prevent multiple API calls
+  const isApiCallInProgress = useRef(false);
+
   const selectedVariantData = product.variants.find(v => v.id === selectedVariant);
   const selectedBaseProduct = availableProducts.find(p => p.id === selectedBaseProductId);
   const finalPrice = (selectedBaseProduct?.basePrice || product.basePrice) + (selectedVariantData?.priceModifier || 0);
   const isProductSelected = selectedBaseProductId !== null;
 
   const handleAddToCart = async () => {
-    if (isSubmitting || !isCartInitialized) return;
+    // Prevent multiple clicks and API calls
+    if (isSubmitting || !isCartInitialized || isApiCallInProgress.current) return;
+
     setIsSubmitting(true);
+    isApiCallInProgress.current = true;
 
     try {
-      // For add-on products (when showBaseProductSelector is false), use the current product directly
-      if (!showBaseProductSelector) {
-        // Instantly call without awaiting - let cart processing happen in background
-        onAddToCart(product, selectedVariant);
-      } else if (selectedBaseProductId && selectedVariant) {
-        // For main products, find the actual product to add to cart
-        const productToAdd = availableProducts.find(p => p.id === selectedBaseProductId) || product;
-        // Instantly call without awaiting - let cart processing happen in background
-        onAddToCart(productToAdd, selectedVariant);
-      }
+      // For main products, call parent callback to handle cart logic properly
+      const productToAdd = availableProducts.find(p => p.id === selectedBaseProductId) || product;
+      console.log('ProductCard: Adding product to cart via parent callback...');
+
+      // Call the parent callback to trigger validation and auto-forward
+      console.log('ProductCard: Calling parent onAddToCart callback...');
+      onAddToCart(productToAdd, selectedVariant);
+      console.log('ProductCard: Parent callback completed');
     } catch (error) {
-      console.error('Error in ProductCard handleAddToCart:', error);
+      // Silent error handling - no logging
     } finally {
-      // Brief delay for UX feedback, then allow another selection
+      // Reset the API call flag and loading state
+      isApiCallInProgress.current = false;
       setTimeout(() => {
         setIsSubmitting(false);
       }, 500);

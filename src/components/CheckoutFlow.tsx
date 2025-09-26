@@ -22,7 +22,8 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [stepProducts, setStepProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
-  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart, isInitialized } = useCart();
+  const [cartValidationError, setCartValidationError] = useState<string | null>(null);
+  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart, isInitialized, validateProductInCart, refreshCartState } = useCart();
 
   // Refs for mobile slider auto-scroll
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -46,6 +47,24 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
 
     refreshCartData();
   }, [loadCart, shopifyCart?.id]);
+
+  // Validate cart state after step changes
+  useEffect(() => {
+    const validateCartAfterStepChange = async () => {
+      // If we're not on step 0 (base product step) and we have a cart, validate it
+      if (currentStep > 0 && shopifyCart?.id) {
+        console.log('Validating cart state after step change...');
+        const isValid = await refreshCartState();
+        if (!isValid) {
+          console.warn('Cart state validation failed, cart may have been lost');
+          // Try to refresh the entire cart state
+          await refreshCartState();
+        }
+      }
+    };
+
+    validateCartAfterStepChange();
+  }, [currentStep, shopifyCart?.id, refreshCartState]);
 
   // Load products for current step based on collection ID
   useEffect(() => {
@@ -99,15 +118,22 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     }
   };
 
-  // Debug: Log cart state changes
+  // Enhanced debug logging for cart state changes
   useEffect(() => {
     console.log('CheckoutFlow - Cart state updated:', {
       hasCart: !!shopifyCart,
       cartId: shopifyCart?.id,
       itemsCount: shopifyCart?.lines?.edges?.length || 0,
-      orderSummaryItems: orderSummary?.items?.length || 0
+      orderSummaryItems: orderSummary?.items?.length || 0,
+      currentStep,
+      stepName: currentStepData?.title
     });
-  }, [shopifyCart, orderSummary]);
+
+    // If we're on step 0 and cart is empty, but we just added a product, there might be a sync issue
+    if (currentStep === 0 && !shopifyCart && orderSummary?.items?.length === 0) {
+      console.warn('Cart appears to be empty on base product step - this might indicate a sync issue');
+    }
+  }, [shopifyCart, orderSummary, currentStep, currentStepData]);
 
   // Auto-scroll to current step in mobile slider when step changes
   useEffect(() => {
@@ -140,20 +166,112 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   };
 
   const handleProductAddToCart = async (product: any, variantId: string) => {
-    // Instantly advance to the next step - don't make the user wait!
-    const nextStep = Math.min(currentStep + 1, steps.length - 1);
-    setCurrentStep(nextStep);
-    // Scroll to top for the next step immediately
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    console.log('=== CheckoutFlow: handleProductAddToCart called ===');
+    console.log('Product:', product.name, 'Variant ID:', variantId);
+    console.log('Current step:', currentStep, 'Step name:', currentStepData?.title);
 
-    // Process cart addition in the background - user doesn't need to wait for this
-    try {
-      await updateProductSelection(product, variantId);
-      console.log('Product added to cart successfully in background');
-    } catch (error) {
-      console.error('Error adding product to cart (non-blocking):', error);
-      // Don't interrupt the user flow - they can continue with the checkout process
-      // The cart sync will happen when they reach the final step
+    // For base products (step 0), wait for cart operation to complete before advancing
+    if (currentStep === 0) {
+      // Use existing cart logic from useCart hook instead of creating new cart
+      try {
+        console.log('CheckoutFlow: Adding base product to existing cart...');
+        console.log('Current cart state:', { hasCart: !!shopifyCart, cartId: shopifyCart?.id });
+
+        // Use the updateProductSelection from useCart hook which handles existing cart logic
+        await updateProductSelection(product, variantId);
+        console.log('CheckoutFlow: Base product added to cart successfully');
+
+        // Wait a moment for cart state to update and then validate
+        console.log('Waiting for cart state to sync...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Validate the base product was added
+        console.log('Validating base product in cart...');
+        const isProductInCart = await validateProductInCart(product.id, variantId);
+        console.log('Base product validation result:', isProductInCart);
+
+        if (!isProductInCart) {
+          console.error('❌ Base product was not found in cart after adding - retrying...');
+
+          // Try to refresh cart state multiple times
+          console.log('Attempting to refresh cart state...');
+          let refreshAttempts = 0;
+          let maxRefreshAttempts = 3;
+
+          while (refreshAttempts < maxRefreshAttempts) {
+            refreshAttempts++;
+            console.log(`Refresh attempt ${refreshAttempts}/${maxRefreshAttempts}...`);
+            await refreshCartState();
+            // Wait for state to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Check again
+            console.log('Re-validating base product in cart after refresh...');
+            const recheck = await validateProductInCart(product.id, variantId);
+            console.log('Re-validation result:', recheck);
+
+            if (recheck) {
+              console.log('✅ Base product found in cart after refresh attempt', refreshAttempts);
+              break;
+            }
+
+            if (refreshAttempts === maxRefreshAttempts) {
+              console.error('❌ Failed to find base product in cart after all refresh attempts');
+              const errorMessage = 'Failed to find base product in cart after all refresh attempts. Please try again.';
+              setCartValidationError(errorMessage);
+              return; // Don't advance if validation fails
+            }
+          }
+
+          if (!await validateProductInCart(product.id, variantId)) {
+            const errorMessage = 'Base product was not found in cart after validation. Please try again.';
+            setCartValidationError(errorMessage);
+            console.error('❌', errorMessage);
+            return; // Don't advance if validation fails
+          }
+        }
+
+        // Auto-advance to next step after successful cart addition AND validation
+        console.log('✅ All validations passed - auto-advancing to next step');
+        const nextStep = Math.min(currentStep + 1, steps.length - 1);
+        setCurrentStep(nextStep);
+        // Scroll to top for the next step
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) {
+        console.error('❌ Error adding base product to cart:', error);
+        setCartValidationError('Failed to add base product to cart. Please try again.');
+        // Don't advance if there was an error
+        return;
+      }
+    } else {
+      // For add-on products (other steps), instantly advance and process in background
+      console.log('Processing add-on product addition...');
+      const nextStep = Math.min(currentStep + 1, steps.length - 1);
+      setCurrentStep(nextStep);
+      // Scroll to top for the next step immediately
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Process cart addition in the background - user doesn't need to wait for this
+      try {
+        console.log('Calling updateProductSelection for add-on...');
+        await updateProductSelection(product, variantId);
+        console.log('✅ Add-on product added to cart successfully in background');
+
+        // Validate the add-on was added
+        console.log('Validating add-on product in cart...');
+        const isProductInCart = await validateProductInCart(product.id, variantId);
+        console.log('Add-on validation result:', isProductInCart);
+
+        if (!isProductInCart) {
+          console.warn('⚠️ Add-on product was not found in cart after adding');
+          setCartValidationError('Add-on product may not have been added properly. Please check your cart.');
+        }
+      } catch (error) {
+        console.error('❌ Error adding add-on product to cart (non-blocking):', error);
+        setCartValidationError('Failed to add add-on product. Please try again.');
+        // Don't interrupt the user flow - they can continue with the checkout process
+        // The cart sync will happen when they reach the final step
+      }
     }
   };
 
@@ -225,6 +343,27 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   return (
     <div className="w-full bg-white">
       <div className="w-full px-4 md:px-8 lg:px-12 py-4 max-w-7xl mx-auto">
+        {/* Cart Validation Error Alert */}
+        {cartValidationError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">!</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-red-800 font-medium">Cart Validation Error</p>
+                <p className="text-red-600 text-sm">{cartValidationError}</p>
+              </div>
+              <button
+                onClick={() => setCartValidationError(null)}
+                className="text-red-600 hover:text-red-800 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Progress Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -821,53 +960,5 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-interface AddOnCardProps {
-  addOn: AddOn;
-  isSelected: boolean;
-  onToggle: () => void;
-}
-
-function AddOnCard({ addOn, isSelected, onToggle }: AddOnCardProps) {
-  return (
-    <Card
-      className={`cursor-pointer transition-all duration-normal hover:shadow-md ${
-        isSelected
-          ? 'ring-2 ring-primary bg-primary/5'
-          : 'hover:border-primary/50'
-      }`}
-      onClick={onToggle}
-    >
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{addOn.name}</h3>
-              {addOn.popular && (
-                <Badge className="bg-warning text-warning-foreground text-xs">
-                  <Star className="w-3 h-3 mr-1" />
-                  Popular
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">{addOn.description}</p>
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-lg text-foreground">
-                ${addOn.price}
-              </span>
-              <div className="flex items-center gap-2">
-                {isSelected ? (
-                  <CheckCircle className="w-5 h-5 text-primary" />
-                ) : (
-                  <Plus className="w-5 h-5 text-muted-foreground" />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

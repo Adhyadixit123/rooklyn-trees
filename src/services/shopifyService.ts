@@ -229,6 +229,27 @@ export class ShopifyCartService {
             cart {
               id
               checkoutUrl
+              lines(first: 10) {
+                edges {
+                  node {
+                    id
+                    quantity
+                    merchandise {
+                      ... on ProductVariant {
+                        id
+                        title
+                        price {
+                          amount
+                          currencyCode
+                        }
+                        product {
+                          title
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
             userErrors {
               code
@@ -265,6 +286,31 @@ export class ShopifyCartService {
 
       if (response.data?.cartCreate?.cart) {
         console.log('Cart created successfully:', response.data.cartCreate.cart.id);
+
+        // Log cart details to verify product was added
+        const cart = response.data.cartCreate.cart;
+        console.log('Cart details:', {
+          id: cart.id,
+          checkoutUrl: cart.checkoutUrl || 'none',
+          hasLines: !!cart.lines,
+          linesCount: cart.lines?.edges?.length || 0
+        });
+
+        // Log individual line items to verify product was added
+        if (cart.lines?.edges && cart.lines.edges.length > 0) {
+          cart.lines.edges.forEach((edge: any, index: number) => {
+            console.log(`Line ${index + 1}:`, {
+              id: edge.node.id,
+              quantity: edge.node.quantity,
+              merchandiseId: edge.node.merchandise?.id,
+              merchandiseTitle: edge.node.merchandise?.title,
+              productTitle: edge.node.merchandise?.product?.title
+            });
+          });
+        } else {
+          console.warn('WARNING: Cart created but no line items found!');
+        }
+
         return response.data.cartCreate.cart.id;
       }
 
