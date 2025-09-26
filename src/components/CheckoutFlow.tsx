@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Plus, ArrowLeft, ArrowRight, Star, ExternalLink, ShoppingBag, Minus, Trash2 } from 'lucide-react';
+import { CheckCircle, Plus, ArrowLeft, ArrowRight, Star, ExternalLink, ShoppingBag, Minus, Trash2, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckoutStep, AddOn } from '@/types/checkout';
 import { useCart } from '@/hooks/useCart';
@@ -21,6 +21,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepProducts, setStepProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart } = useCart();
 
   // Refs for mobile slider auto-scroll
@@ -180,7 +181,23 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     } else {
       // Final step - redirect to Shopify checkout
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        setIsProcessingCheckout(true);
+        // Small delay to show loading state
+        setTimeout(() => {
+          try {
+            window.top.location.href = checkoutUrl;
+          } catch (error) {
+            try {
+              // Fallback to parent if top is not accessible
+              window.parent.location.href = checkoutUrl;
+            } catch (fallbackError) {
+              // Final fallback to current window
+              window.location.href = checkoutUrl;
+            }
+          } finally {
+            setIsProcessingCheckout(false);
+          }
+        }, 500);
       } else {
         onComplete();
       }
@@ -660,10 +677,19 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
               <Button
                 onClick={handleNext}
                 className="bg-gradient-primary hover:opacity-90 text-primary-foreground flex items-center gap-2 px-8"
-                disabled={isCartSummaryStep && (!orderSummary || orderSummary.items.length === 0)}
+                disabled={isCartSummaryStep && (!orderSummary || orderSummary.items.length === 0) || isProcessingCheckout}
               >
-                {isCartSummaryStep ? 'Proceed to Checkout' : 'Continue'}
-                <ArrowRight className="w-4 h-4" />
+                {isProcessingCheckout ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    {isCartSummaryStep ? 'Proceed to Checkout' : 'Continue'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -749,11 +775,39 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                       {checkoutUrl && currentStep === steps.length - 1 && (
                         <div className="pt-4">
                           <Button
-                            onClick={() => window.location.href = checkoutUrl}
+                            onClick={() => {
+                              // Always redirect to top window for checkout
+                              setIsProcessingCheckout(true);
+                              setTimeout(() => {
+                                try {
+                                  window.top.location.href = checkoutUrl;
+                                } catch (error) {
+                                  try {
+                                    // Fallback to parent if top is not accessible
+                                    window.parent.location.href = checkoutUrl;
+                                  } catch (fallbackError) {
+                                    // Final fallback to current window
+                                    window.location.href = checkoutUrl;
+                                  }
+                                } finally {
+                                  setIsProcessingCheckout(false);
+                                }
+                              }, 500);
+                            }}
+                            disabled={isProcessingCheckout}
                             className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                           >
-                            <ExternalLink className="w-4 h-4" />
-                            Complete Purchase
+                            {isProcessingCheckout ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="w-4 h-4" />
+                                Complete Purchase
+                              </>
+                            )}
                           </Button>
                         </div>
                       )}

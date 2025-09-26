@@ -136,24 +136,132 @@ const Index = () => {
 
   // Iframe height adjustment for Shopify embedding
   useEffect(() => {
+    let resizeObserver: ResizeObserver | null = null;
+
     const sendHeight = () => {
       const height = document.body.scrollHeight;
-      window.parent.postMessage({ type: 'setHeight', height }, '*');
+      try {
+        window.parent.postMessage({ type: 'setHeight', height }, '*');
+      } catch (error) {
+        console.warn('Failed to send height to parent:', error);
+      }
     };
 
-    // Send height on load
-    window.addEventListener('load', sendHeight);
+    const setupHeightAdjustment = () => {
+      // Send height on load
+      window.addEventListener('load', sendHeight);
 
-    // Send height on resize or content changes
-    window.addEventListener('resize', sendHeight);
+      // Send height on resize or content changes
+      window.addEventListener('resize', sendHeight);
 
-    // Send initial height
-    sendHeight();
+      // Use ResizeObserver for more reliable height detection
+      if (window.ResizeObserver) {
+        resizeObserver = new ResizeObserver(() => {
+          // Debounce height updates
+          setTimeout(sendHeight, 100);
+        });
+
+        resizeObserver.observe(document.body);
+      }
+
+      // Send initial height
+      sendHeight();
+    };
+
+    // Setup height adjustment
+    setupHeightAdjustment();
 
     // Cleanup
     return () => {
       window.removeEventListener('load', sendHeight);
       window.removeEventListener('resize', sendHeight);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, []);
+
+  // Checkout link interceptor for Shopify iframe
+  useEffect(() => {
+    let mutationObserver: MutationObserver | null = null;
+
+    const handleCheckoutClick = (event: Event) => {
+      const target = event.target as HTMLElement;
+      const link = target.closest('a[href*="/checkout"]') as HTMLAnchorElement;
+
+      if (link) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Always redirect to top window for checkout with complete fallback chain
+        try {
+          window.top.location.href = link.href;
+        } catch (error) {
+          try {
+            // Fallback to parent if top is not accessible
+            window.parent.location.href = link.href;
+          } catch (fallbackError) {
+            // Final fallback to current window
+            window.location.href = link.href;
+          }
+        }
+      }
+    };
+
+    const setupCheckoutInterception = () => {
+      // Handle existing checkout links
+      const checkoutLinks = document.querySelectorAll('a[href*="/checkout"]');
+      checkoutLinks.forEach(link => {
+        link.addEventListener('click', handleCheckoutClick);
+        // Add target="_top" for explicit checkout links
+        link.setAttribute('target', '_top');
+      });
+
+      // Set up MutationObserver for dynamically created checkout links
+      if (window.MutationObserver) {
+        mutationObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                const element = node as Element;
+                const checkoutLinks = element.querySelectorAll ?
+                  element.querySelectorAll('a[href*="/checkout"]') :
+                  [];
+
+                checkoutLinks.forEach((link: Element) => {
+                  (link as HTMLAnchorElement).addEventListener('click', handleCheckoutClick);
+                  (link as HTMLAnchorElement).setAttribute('target', '_top');
+                });
+              }
+            });
+          });
+        });
+
+        mutationObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      }
+
+      // Global click listener as fallback
+      document.addEventListener('click', (event) => {
+        const target = event.target as HTMLElement;
+        if (target && target.closest && target.closest('a[href*="/checkout"]')) {
+          handleCheckoutClick(event);
+        }
+      }, true); // Use capture phase
+    };
+
+    // Setup checkout interception
+    setupCheckoutInterception();
+
+    // Cleanup
+    return () => {
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
+
+      document.removeEventListener('click', handleCheckoutClick, true);
     };
   }, []);
 

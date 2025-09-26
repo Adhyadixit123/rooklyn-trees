@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Parent Page - Iframe Integration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        iframe {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: height 0.3s ease;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            margin: 20px 0;
+        }
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Shopify Parent Page - React App Integration</h1>
+
+        <div class="instructions">
+            <h3>📋 Instructions for Shopify Theme Developers:</h3>
+            <p>Add this JavaScript code to your Shopify theme's main template file (theme.liquid or equivalent) to properly handle iframe resizing and checkout redirects.</p>
+        </div>
+
+        <h2>🔧 JavaScript Code to Add:</h2>
+        <div class="code-block">// Shopify Parent Page - Iframe Integration Code
+// Add this to your theme.liquid or main layout file
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle iframe height adjustment messages
+    window.addEventListener('message', function(event) {
+        // Verify origin for security (replace with your app's domain)
+        const allowedOrigins = [
+            'https://your-app-domain.com',
+            'http://localhost:5173',
+            'http://localhost:8080'
+        ];
+
+        if (allowedOrigins.includes(event.origin)) {
+            const message = event.data;
+
+            if (message.type === 'setHeight' && message.height) {
+                // Find the iframe and adjust its height
+                const iframe = document.querySelector('iframe[src*="your-app-domain"]');
+                if (iframe) {
+                    iframe.style.height = message.height + 'px';
+                    console.log('Iframe height adjusted to:', message.height + 'px');
+                }
+            }
+        }
+    });
+
+    // Alternative: If you know the specific iframe ID or class
+    // const iframe = document.getElementById('your-iframe-id');
+    // if (iframe) {
+    //     window.addEventListener('message', function(event) {
+    //         if (event.data.type === 'setHeight') {
+    //             iframe.style.height = event.data.height + 'px';
+    //         }
+    //     });
+    // }
+});</div>
+
+        <h2>📝 Integration Steps:</h2>
+        <ol>
+            <li><strong>Add the JavaScript code</strong> to your Shopify theme's main template</li>
+            <li><strong>Replace allowedOrigins</strong> with your actual app domain(s)</li>
+            <li><strong>Update iframe selector</strong> to match your iframe element</li>
+            <li><strong>Test the integration</strong> by loading your app in the iframe</li>
+        </ol>
+
+        <h2>🔍 How It Works:</h2>
+        <ul>
+            <li><strong>Height Adjustment:</strong> React app sends height via postMessage → Parent listens and resizes iframe</li>
+            <li><strong>Checkout Redirect:</strong> All checkout links redirect to parent window (window.top)</li>
+            <li><strong>Dynamic Links:</strong> MutationObserver catches newly created checkout links</li>
+            <li><strong>Fallbacks:</strong> Multiple redirect methods ensure compatibility</li>
+        </ul>
+
+        <h2>⚠️ Security Notes:</h2>
+        <ul>
+            <li>Always verify the message origin for security</li>
+            <li>Use HTTPS in production</li>
+            <li>Restrict allowed origins to your domains only</li>
+        </ul>
+
+        <div class="instructions">
+            <h3>🧪 Testing:</h3>
+            <p>1. Load this page in a browser</p>
+            <p>2. The iframe should auto-resize to fit content</p>
+            <p>3. Clicking any checkout link should redirect to the top window</p>
+            <p>4. Check browser console for any errors</p>
+        </div>
+    </div>
+
+    <!-- Example iframe (replace with your actual iframe) -->
+    <iframe
+        id="react-app-iframe"
+        src="http://localhost:5173"
+        style="width: 100%; height: 600px; border: 1px solid #ccc;"
+        frameborder="0">
+    </iframe>
+</body>
+</html>
