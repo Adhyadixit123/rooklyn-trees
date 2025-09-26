@@ -83,19 +83,39 @@ export function useCart() {
     };
 
     initializeCart();
-  }, [cartId, isInitialized, saveCartData]);
+  }, [cartId, isInitialized]);
 
   const loadCart = useCallback(async (id: string) => {
     try {
-      const cart = await ShopifyCartService.getCart(id);
-      if (cart) {
-        setShopifyCart(cart);
-        saveCartData(id, cart);
-        setError(null);
-      } else {
-        setError('Failed to load cart');
+      // Try multiple times to load cart data
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        attempts++;
+        console.log(`Cart load attempt ${attempts}/${maxAttempts} for cart:`, id);
+
+        try {
+          const cart = await ShopifyCartService.getCart(id);
+          if (cart) {
+            console.log('Cart loaded successfully');
+            setShopifyCart(cart);
+            saveCartData(id, cart);
+            setError(null);
+            return;
+          }
+        } catch (error) {
+          console.error(`Cart load attempt ${attempts} failed:`, error);
+          if (attempts === maxAttempts) {
+            throw error;
+          }
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
       }
-    } catch (error) {
+
+      throw new Error('Failed to load cart after multiple attempts');
+    } catch (error: any) {
       console.error('Error loading cart:', error);
       setError('Error loading cart');
     }
@@ -160,12 +180,14 @@ export function useCart() {
         variantId
       });
 
-      // Retry logic for transient errors
-      if (retryCount < 2) {
-        console.log(`Retrying cart operation (attempt ${retryCount + 1}/3)...`);
+      // Enhanced retry logic with exponential backoff
+      if (retryCount < 3) {
+        console.log(`Retrying cart operation (attempt ${retryCount + 1}/4)...`);
         setRetryCount(prev => prev + 1);
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        // Exponential backoff: wait 1s, 2s, 4s for retries
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return updateProductSelection(product, variantId);
       }
 
@@ -174,13 +196,13 @@ export function useCart() {
       const errorMessage = error.message || 'Error updating product selection';
       setError(errorMessage);
 
-      // Show user-friendly error
-      if (errorMessage.includes('Network error')) {
+      // Enhanced error classification and user-friendly messages
+      if (errorMessage.includes('Network error') || errorMessage.includes('timeout') || errorMessage.includes('TIMED_OUT')) {
         setError('Network connection issue. Please check your internet and try again.');
       } else if (errorMessage.includes('Invalid')) {
         setError('Product variant is no longer available. Please refresh and try again.');
       } else {
-        setError('Failed to add product to cart. Please try again.');
+        setError('Too many requests. Please wait a moment and try again.');
       }
     } finally {
       setIsLoading(false);
@@ -293,9 +315,34 @@ export function useCart() {
     };
   }, [shopifyCart]);
 
+  const clearCartData = useCallback(() => {
+    console.log('Clearing cart data...');
+    setCartId(null);
+    setShopifyCart(null);
+    setSelectedProduct(null);
+    setError(null);
+    setRetryCount(0);
+    localStorage.removeItem('shopify_cart_id');
+    localStorage.removeItem('shopify_cart_data');
+  }, []);
+
   const getCheckoutUrl = useCallback(() => {
     return shopifyCart?.checkoutUrl || null;
   }, [shopifyCart]);
+
+  const isExternalServiceAvailable = useCallback(async (): Promise<boolean> => {
+    try {
+      // Simple test to check if external Shopify services are responding
+      const testResponse = await fetch('https://shop.app/pay/session?v=1&token=test&shop_id=1', {
+        method: 'HEAD',
+        mode: 'no-cors'
+      });
+      return true;
+    } catch (error) {
+      console.warn('External Shopify services may be unavailable:', error);
+      return false;
+    }
+  }, []);
 
   return {
     cartId,
@@ -310,6 +357,8 @@ export function useCart() {
     calculateTotal,
     getOrderSummary,
     getCheckoutUrl,
+    clearCartData,
+    isExternalServiceAvailable,
     isLoading,
     error,
     setAllAddOns,

@@ -252,7 +252,14 @@ export class ShopifyCartService {
 
       console.log('Cart creation variables:', variables);
 
-      const response = await shopifyClient.request(query, { variables });
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMED_OUT')), 10000); // 10 second timeout
+      });
+
+      const requestPromise = shopifyClient.request(query, { variables });
+      const response = await Promise.race([requestPromise, timeoutPromise]) as any;
+
       console.log('Cart creation response:', response);
       console.log('Full response data:', response.data);
 
@@ -278,16 +285,14 @@ export class ShopifyCartService {
         });
 
         // Also show errors in alert for immediate visibility
-        alert(`Cart creation failed: ${userErrors.map((e: any) => e.message).join(', ')}`);
-
-        return null;
+        const errorMessage = userErrors.map((e: any) => e.message).join(', ');
+        throw new Error(`Cart creation failed: ${errorMessage}`);
       }
 
       console.error('Cart creation failed but no specific errors found in response');
       console.error('Full response structure:', JSON.stringify(response, null, 2));
 
-      alert('Cart creation failed: Unknown error - check console for details');
-      return null;
+      throw new Error('Cart creation failed: Unknown error - check console for details');
     } catch (error: any) {
       console.error('Error creating cart:', error);
 
@@ -303,15 +308,15 @@ export class ShopifyCartService {
         console.error('GraphQL errors:', error.graphQLErrors);
         // Show GraphQL errors to user
         const errorMessages = error.graphQLErrors.map((e: any) => e.message).join(', ');
-        alert(`Cart creation failed: ${errorMessages}`);
+        throw new Error(`Cart creation failed: ${errorMessages}`);
       }
       if (error.networkError) {
         console.error('Network error:', error.networkError);
-        alert('Cart creation failed: Network error - check your connection');
+        throw new Error('Cart creation failed: Network error - check your connection');
       }
 
-      alert(`Cart creation failed: ${error.message || 'Network error'}`);
-      return null;
+      // Re-throw the error with the original message if it's already formatted
+      throw error;
     }
   }
 
@@ -346,7 +351,14 @@ export class ShopifyCartService {
 
       console.log('Add to cart variables:', variables);
 
-      const response = await shopifyClient.request(query, { variables });
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMED_OUT')), 10000); // 10 second timeout
+      });
+
+      const requestPromise = shopifyClient.request(query, { variables });
+      const response = await Promise.race([requestPromise, timeoutPromise]) as any;
+
       console.log('Add to cart response:', response);
 
       if (response.data?.cartLinesAdd?.cart) {
@@ -361,13 +373,12 @@ export class ShopifyCartService {
         userErrors.forEach((error: any, index: number) => {
           console.error(`User Error ${index + 1}:`, error.code, error.message);
         });
-        alert(`Failed to add to cart: ${userErrors.map((e: any) => e.message).join(', ')}`);
+        const errorMessage = userErrors.map((e: any) => e.message).join(', ');
+        throw new Error(`Failed to add to cart: ${errorMessage}`);
       } else {
         console.error('Add to cart failed but no specific errors returned');
-        alert('Failed to add product to cart. Please try again.');
+        throw new Error('Failed to add product to cart. Please try again.');
       }
-
-      return false;
     } catch (error: any) {
       console.error('Error adding to cart:', error);
 
@@ -382,7 +393,8 @@ export class ShopifyCartService {
         console.error('GraphQL errors:', error.graphQLErrors);
       }
 
-      return false;
+      // Re-throw the error with the original message if it's already formatted
+      throw error;
     }
   }
 
