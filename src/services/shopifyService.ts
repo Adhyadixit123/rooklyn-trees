@@ -564,6 +564,7 @@ export class ShopifyCartService {
                         currencyCode
                       }
                       product {
+                        id
                         title
                         images(first: 1) {
                           edges {

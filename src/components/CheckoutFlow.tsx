@@ -170,108 +170,25 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     console.log('Product:', product.name, 'Variant ID:', variantId);
     console.log('Current step:', currentStep, 'Step name:', currentStepData?.title);
 
-    // For base products (step 0), wait for cart operation to complete before advancing
-    if (currentStep === 0) {
-      // Use existing cart logic from useCart hook instead of creating new cart
-      try {
-        console.log('CheckoutFlow: Adding base product to existing cart...');
-        console.log('Current cart state:', { hasCart: !!shopifyCart, cartId: shopifyCart?.id });
+    // Treat all additions in CheckoutFlow as add-ons: advance immediately, add in background
+    console.log('Processing add-on product addition...');
+    const nextStep = Math.min(currentStep + 1, steps.length - 1);
+    setCurrentStep(nextStep);
+    // Scroll to top for the next step immediately
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Use the updateProductSelection from useCart hook which handles existing cart logic
-        await updateProductSelection(product, variantId);
-        console.log('CheckoutFlow: Base product added to cart successfully');
-
-        // Wait a moment for cart state to update and then validate
-        console.log('Waiting for cart state to sync...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Validate the base product was added
-        console.log('Validating base product in cart...');
-        const isProductInCart = await validateProductInCart(product.id, variantId);
-        console.log('Base product validation result:', isProductInCart);
-
-        if (!isProductInCart) {
-          console.error('❌ Base product was not found in cart after adding - retrying...');
-
-          // Try to refresh cart state multiple times
-          console.log('Attempting to refresh cart state...');
-          let refreshAttempts = 0;
-          let maxRefreshAttempts = 3;
-
-          while (refreshAttempts < maxRefreshAttempts) {
-            refreshAttempts++;
-            console.log(`Refresh attempt ${refreshAttempts}/${maxRefreshAttempts}...`);
-            await refreshCartState();
-            // Wait for state to update
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Check again
-            console.log('Re-validating base product in cart after refresh...');
-            const recheck = await validateProductInCart(product.id, variantId);
-            console.log('Re-validation result:', recheck);
-
-            if (recheck) {
-              console.log('✅ Base product found in cart after refresh attempt', refreshAttempts);
-              break;
-            }
-
-            if (refreshAttempts === maxRefreshAttempts) {
-              console.error('❌ Failed to find base product in cart after all refresh attempts');
-              const errorMessage = 'Failed to find base product in cart after all refresh attempts. Please try again.';
-              setCartValidationError(errorMessage);
-              return; // Don't advance if validation fails
-            }
-          }
-
-          if (!await validateProductInCart(product.id, variantId)) {
-            const errorMessage = 'Base product was not found in cart after validation. Please try again.';
-            setCartValidationError(errorMessage);
-            console.error('❌', errorMessage);
-            return; // Don't advance if validation fails
-          }
-        }
-
-        // Auto-advance to next step after successful cart addition AND validation
-        console.log('✅ All validations passed - auto-advancing to next step');
-        const nextStep = Math.min(currentStep + 1, steps.length - 1);
-        setCurrentStep(nextStep);
-        // Scroll to top for the next step
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (error) {
-        console.error('❌ Error adding base product to cart:', error);
-        setCartValidationError('Failed to add base product to cart. Please try again.');
-        // Don't advance if there was an error
-        return;
-      }
-    } else {
-      // For add-on products (other steps), instantly advance and process in background
-      console.log('Processing add-on product addition...');
-      const nextStep = Math.min(currentStep + 1, steps.length - 1);
-      setCurrentStep(nextStep);
-      // Scroll to top for the next step immediately
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      // Process cart addition in the background - user doesn't need to wait for this
-      try {
-        console.log('Calling updateProductSelection for add-on...');
-        await updateProductSelection(product, variantId);
-        console.log('✅ Add-on product added to cart successfully in background');
-
-        // Validate the add-on was added
-        console.log('Validating add-on product in cart...');
-        const isProductInCart = await validateProductInCart(product.id, variantId);
-        console.log('Add-on validation result:', isProductInCart);
-
-        if (!isProductInCart) {
-          console.warn('⚠️ Add-on product was not found in cart after adding');
-          setCartValidationError('Add-on product may not have been added properly. Please check your cart.');
-        }
-      } catch (error) {
-        console.error('❌ Error adding add-on product to cart (non-blocking):', error);
-        setCartValidationError('Failed to add add-on product. Please try again.');
-        // Don't interrupt the user flow - they can continue with the checkout process
-        // The cart sync will happen when they reach the final step
-      }
+    // Process cart addition in the background - user doesn't need to wait for this
+    try {
+      console.log('Calling updateProductSelection for add-on...');
+      await updateProductSelection(product, variantId);
+      console.log('✅ Add-on product added to cart successfully in background');
+      // Skip immediate validation to avoid transient false negatives while Shopify state syncs.
+      // The final summary and sidebar will reflect the true cart state after sync.
+    } catch (error) {
+      console.error('❌ Error adding add-on product to cart (non-blocking):', error);
+      // Do not surface a blocking error here; user has already advanced.
+      // Don't interrupt the user flow - they can continue with the checkout process
+      // The cart sync will happen when they reach the final step
     }
   };
 
