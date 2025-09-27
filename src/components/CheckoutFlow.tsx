@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Plus, ArrowLeft, ArrowRight, Star, ExternalLink, ShoppingBag, Minus, Trash2, Loader2 } from 'lucide-react';
+import { CheckCircle, Plus, ArrowLeft, ArrowRight, Star, ExternalLink, ShoppingBag, Minus, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { validateTreeSize, validateStandForTree, validateInstallationForTree } from '@/utils/treeValidation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckoutStep, AddOn } from '@/types/checkout';
+import { treeSizeMappings, getTreeSizeMapping } from '@/lib/treeSizeMapping';
 import { useCart } from '@/hooks/useCart';
 import { ShopifyProductService, ShopifyCartService } from '@/services/shopifyService';
 import { ProductCard } from '@/components/ProductCard';
@@ -30,9 +32,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const currentStepRef = useRef<HTMLDivElement>(null);
 
   const currentStepData = steps[currentStep];
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  const [progress, setProgress] = useState(0);
   const orderSummary = getOrderSummary();
   const checkoutUrl = getCheckoutUrl();
+
+  // Handle progress animation
+  useEffect(() => {
+    // Start from 0 when changing steps
+    setProgress(0);
+    // Animate to the current step's progress
+    const timer = setTimeout(() => {
+      setProgress(((currentStep + 1) / steps.length) * 100);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [currentStep, steps.length]);
 
   // Delivery details to be stored as Shopify cart note
   const [deliveryDate, setDeliveryDate] = useState<string>('');
@@ -79,7 +92,29 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     validateCartAfterStepChange();
   }, [currentStep, shopifyCart?.id, refreshCartState]);
 
-  // Load products for current step based on collection ID or specific product IDs
+  // Get selected tree type and size from cart
+  const getSelectedTreeType = (): string | null => {
+    if (!shopifyCart?.lines?.edges || shopifyCart.lines.edges.length === 0) return null;
+    const treeProduct = shopifyCart.lines.edges[0]?.node?.merchandise?.product;
+    if (!treeProduct) return null;
+    
+    // Check if the product title contains either "Fraser Fir" or "Balsam Fir"
+    if (treeProduct.title.includes('Fraser Fir')) return 'Fraser Fir';
+    if (treeProduct.title.includes('Balsam Fir')) return 'Balsam Fir';
+    return null;
+  };
+
+  const getSelectedTreeVariant = () => {
+    if (!shopifyCart?.lines?.edges || shopifyCart.lines.edges.length === 0) return null;
+    const treeVariant = shopifyCart.lines.edges[0]?.node?.merchandise;
+    if (!treeVariant) return null;
+    
+    // Format the variant title to match our mapping (e.g., "7" becomes "7'")
+    const variantNumber = treeVariant.title.replace(/[^0-9]/g, '');
+    return variantNumber ? `${variantNumber}'` : treeVariant.title;
+  };
+
+  // Load products for current step based on collection ID, specific product IDs, or tree size
   useEffect(() => {
     const loadStepProducts = async () => {
       if (currentStep >= steps.length - 1) {
@@ -87,14 +122,9 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
         return;
       }
 
-      if (!currentStepData?.collectionId && !currentStepData?.productIds && !currentStepData?.isSpecificProducts) {
-        setStepProducts([]);
-        return;
-      }
-
       setLoadingProducts(true);
       try {
-        let products = [];
+        let products: any[] = [];
         
         if (currentStepData.isSpecificProducts && currentStepData.productIds) {
           // Load specific products for insurance certificates
@@ -103,8 +133,60 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
           );
           const loadedProducts = await Promise.all(productPromises);
           products = loadedProducts.filter(p => p !== null);
+        } else if (currentStepData.isStandStep || currentStepData.isInstallationStep) {
+          // Get the selected tree variant and type from the cart
+          const selectedVariant = getSelectedTreeVariant();
+          const selectedType = getSelectedTreeType();
+          if (selectedVariant && selectedType) {
+            // Get the mapping for the selected tree type and size
+            const mapping = getTreeSizeMapping(selectedType as keyof typeof treeSizeMappings, selectedVariant);
+            if (mapping) {
+              const productLink = currentStepData.isStandStep ? mapping.treeStand : mapping.installation;
+              
+              // If there's no product link or it's marked as included (null), show a message and let user proceed
+              if (!productLink) {
+                if (currentStepData.isStandStep) {
+                  setStepProducts([]);
+                  // Show informational message that stand is included/not needed
+                  setCartValidationError("Tree stand is included with this size. You can proceed to the next step.");
+                } else if (currentStepData.isInstallationStep) {
+                  setStepProducts([]);
+                  // Show informational message that installation is not available
+                  setCartValidationError("Installation service is not available for this size. You can proceed to the next step.");
+                }
+                return;
+              }
+
+              // If there's a product link, try to fetch the product
+              if (productLink.url) {
+                const urlParts = productLink.url.split('/products/');
+                if (urlParts.length === 2) {
+                  const handle = urlParts[1].split('?')[0]; // Remove any query parameters
+                  console.log('Fetching product by handle:', handle);
+                  const product = await ShopifyProductService.getProductByHandle(handle);
+                  if (product) {
+                    console.log('Found product:', product);
+                    products = [product];
+                    setCartValidationError(null); // Clear any previous messages
+                  } else {
+                    console.error('Product not found for handle:', handle);
+                    setStepProducts([]);
+                    setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
+                  }
+                }
+              }
+            } else {
+              // No mapping found - product is not needed for this size
+              setStepProducts([]);
+              setCartValidationError(
+                currentStepData.isStandStep 
+                  ? "Tree stand is included with this size. You can proceed to the next step." 
+                  : "This service is not needed for this size. You can proceed to the next step."
+              );
+            }
+          }
         } else if (currentStepData.collectionId) {
-          // Load products from collection
+          // Load products from collection for other steps
           products = await ShopifyProductService.getProductsByCollection(currentStepData.collectionId);
         }
 
@@ -120,7 +202,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     };
 
     loadStepProducts();
-  }, [currentStep, currentStepData, steps]);
+  }, [currentStep, currentStepData, steps, shopifyCart]);
 
   // Auto-scroll to top when step changes (proceed to next step)
   useEffect(() => {
@@ -168,10 +250,22 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
 
   // Auto-scroll to current step in mobile slider when step changes
   useEffect(() => {
-    // Scroll to current step in mobile slider when step changes
-    const timer = setTimeout(() => scrollToStep(currentStep), 150);
-    return () => clearTimeout(timer);
-  }, [currentStep]);
+    // First update progress to 0
+    setProgress(0);
+    
+    // Then scroll to the step
+    const scrollTimer = setTimeout(() => scrollToStep(currentStep), 100);
+    
+    // Finally animate the progress
+    const progressTimer = setTimeout(() => {
+      setProgress(((currentStep + 1) / steps.length) * 100);
+    }, 300);
+
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(progressTimer);
+    };
+  }, [currentStep, steps.length]);
 
   const isAddOnSelected = (addOnId: string) => {
     // For now, add-ons are handled locally since Shopify doesn't have add-on concept
@@ -241,6 +335,12 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
+      // Validate current step before proceeding
+      const selectedVariant = getSelectedTreeVariant();
+      const selectedType = getSelectedTreeType();
+      
+      // No validation needed here - if products aren't mapped, they're not required
+
       // Persist order notes when leaving Step 4 (index 3) and Step 5 (index 4)
       try {
         if (currentStep === 3 || currentStep === 4) {
@@ -303,20 +403,62 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   return (
     <div className="w-full bg-white">
       <div className="w-full px-4 md:px-8 lg:px-12 py-4 max-w-7xl mx-auto">
-        {/* Cart Validation Error Alert */}
+        {/* Cart Validation Messages */}
         {cartValidationError && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className={`mb-4 p-4 rounded-lg ${
+            cartValidationError.includes('included') || cartValidationError.includes('proceed')
+              ? 'bg-blue-50 border border-blue-200'
+              : 'bg-red-50 border border-red-200'
+          }`}>
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">!</span>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                cartValidationError.includes('included') || cartValidationError.includes('proceed')
+                  ? 'bg-blue-500'
+                  : 'bg-red-500'
+              }`}>
+                {cartValidationError.includes('included') || cartValidationError.includes('proceed') ? (
+                  <svg 
+                    className="w-3 h-3 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                ) : (
+                  <span className="text-white text-xs font-bold">!</span>
+                )}
               </div>
               <div className="flex-1">
-                <p className="text-red-800 font-medium">Cart Validation Error</p>
-                <p className="text-red-600 text-sm">{cartValidationError}</p>
+                <p className={`font-medium ${
+                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
+                    ? 'text-blue-800'
+                    : 'text-red-800'
+                }`}>
+                  {cartValidationError.includes('included') || cartValidationError.includes('proceed')
+                    ? 'Information'
+                    : 'Cart Validation Error'}
+                </p>
+                <p className={`text-sm ${
+                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
+                    ? 'text-blue-600'
+                    : 'text-red-600'
+                }`}>
+                  {cartValidationError}
+                </p>
               </div>
               <button
                 onClick={() => setCartValidationError(null)}
-                className="text-red-600 hover:text-red-800 text-lg font-bold"
+                className={`text-lg font-bold ${
+                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
+                    ? 'text-blue-600 hover:text-blue-800'
+                    : 'text-red-600 hover:text-red-800'
+                }`}
               >
                 ×
               </button>
@@ -339,7 +481,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
               </span>
             </div>
           </div>
-          <Progress value={(currentStep / (steps.length - 1)) * 100} className="h-2" />
+          <Progress value={progress} className="h-2 transition-all duration-500 ease-in-out" />
 
           {/* Desktop: Show numbered step names */}
           <div className="hidden md:flex justify-between text-xs text-muted-foreground mt-2">
@@ -349,19 +491,48 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
               const isUpcoming = index > currentStep;
 
               return (
-                <div key={index} className="flex flex-col items-center">
-                  <span className={`font-bold text-sm ${
-                    isCompleted ? 'text-primary' :
-                    isCurrent ? 'text-primary' : 'text-muted-foreground'
-                  }`}>
-                    {index + 1}
-                  </span>
-                  <span className={`text-xs mt-1 ${
-                    isCompleted ? 'text-primary' :
-                    isCurrent ? 'text-primary' : 'text-muted-foreground'
+                <div key={index} className="flex flex-col items-center relative">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center 
+                    transform transition-all duration-500 ease-in-out ${
+                      isCompleted ? 'bg-primary/10' :
+                      isCurrent ? 'bg-primary/20 scale-110' : 'bg-gray-100'
+                    }`}>
+                    <span className={`font-bold text-sm transform transition-all duration-500 ${
+                      isCompleted ? 'text-primary scale-100' :
+                      isCurrent ? 'text-primary scale-110' : 'text-muted-foreground'
+                    }`}>
+                      {isCompleted ? (
+                        <svg
+                          className="w-4 h-4 text-primary"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
+                  </div>
+                  <span className={`text-xs mt-2 text-center transition-all duration-500 ${
+                    isCompleted ? 'text-primary font-medium' :
+                    isCurrent ? 'text-primary font-medium' : 'text-muted-foreground'
                   }`}>
                     {stepName}
                   </span>
+                  {index < steps.length - 1 && (
+                    <div className={`absolute top-4 left-[calc(100%+8px)] w-[calc(100%-24px)] h-[2px] -ml-2
+                      transform transition-all duration-500 ${
+                        isCompleted ? 'bg-primary' : 'bg-gray-200'
+                      }`} 
+                    />
+                  )}
                 </div>
               );
             })}
@@ -404,16 +575,38 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         ref={index === currentStep ? currentStepRef : null}
                         className="flex-shrink-0 flex flex-col items-center min-w-[80px]"
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mb-1 transition-colors duration-200 ${
-                          isCompleted ? 'bg-primary text-primary-foreground' :
-                          isCurrent ? 'bg-primary text-primary-foreground' : 'bg-gray-200 text-gray-600'
-                        }`}>
-                          {index + 1}
+                        <div 
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mb-1 
+                          transform transition-all duration-500 ease-in-out ${
+                            isCompleted ? 'bg-primary text-primary-foreground scale-100' :
+                            isCurrent ? 'bg-primary text-primary-foreground scale-110' : 'bg-gray-200 text-gray-600 scale-100'
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : (
+                            index + 1
+                          )}
                         </div>
-                        <span className={`text-xs text-center leading-tight px-1 transition-colors duration-200 ${
-                          isCompleted ? 'text-primary font-medium' :
-                          isCurrent ? 'text-primary font-medium' : 'text-muted-foreground'
-                        }`}>
+                        <span 
+                          className={`text-xs text-center leading-tight px-1 
+                          transform transition-all duration-500 ease-in-out ${
+                            isCompleted ? 'text-primary font-medium opacity-100' :
+                            isCurrent ? 'text-primary font-medium scale-105 opacity-100' : 'text-muted-foreground opacity-70'
+                          }`}
+                        >
                           {stepName}
                         </span>
                       </div>
@@ -589,26 +782,33 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   )}
 
                   {currentStep === 1 && (
-                    // Step 2: Tree Installation
+                    // Step 2: Tree Installation - Real products based on tree size
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Installation Services</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <h4 className="font-medium">Professional Installation</h4>
-                            <p className="text-sm text-muted-foreground">Our experts will set up your tree perfectly</p>
-                          </div>
-                          <span className="font-bold">$75.00</span>
+                      {loadingProducts ? (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">Loading installation options...</div>
                         </div>
-                        <div className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <h4 className="font-medium">Basic Setup</h4>
-                            <p className="text-sm text-muted-foreground">Tree placement and basic positioning</p>
-                          </div>
-                          <span className="font-bold">$35.00</span>
+                      ) : stepProducts.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-6">
+                          {stepProducts.map((product) => (
+                            <div key={product.id} className="w-full h-full flex">
+                              <ProductCard
+                                product={product}
+                                onAddToCart={handleProductAddToCart}
+                                availableProducts={stepProducts}
+                                showBaseProductSelector={false}
+                                isCartInitialized={isInitialized}
+                              />
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Installation service selection will be implemented in the next phase.</p>
+                      ) : (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">No installation options available for your tree size.</div>
+                          <p className="text-sm text-gray-500 mt-2">Please continue to the next step.</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -647,6 +847,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     // Step 4: Delivery Date
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Select Delivery Date</h3>
+                      
+                      {/* Warning Message */}
+                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
+                        <div className="text-yellow-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-yellow-800">Delivery Information</h4>
+                          <p className="text-sm text-yellow-700">Deliveries will begin from November 22, 2025. Please select a date on or after this date.</p>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <label className="text-sm font-medium" htmlFor="delivery-date">Delivery Date</label>
                         <input
@@ -654,9 +868,23 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           type="date"
                           className="w-full mt-1 p-3 border rounded-md"
                           value={deliveryDate}
-                          onChange={(e) => setDeliveryDate(e.target.value)}
+                          min="2025-11-22" // Set minimum date
+                          onChange={(e) => {
+                            const selectedDate = new Date(e.target.value);
+                            const minDate = new Date('2025-11-22');
+                            
+                            if (selectedDate < minDate) {
+                              setCartValidationError('Please select a date on or after November 22, 2025');
+                              return;
+                            }
+                            
+                            setCartValidationError(null);
+                            setDeliveryDate(e.target.value);
+                          }}
                         />
-                        <p className="text-xs text-muted-foreground">Choose any available date that suits you.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Select your preferred delivery date (available from November 22, 2025)
+                        </p>
                       </div>
                     </div>
                   )}

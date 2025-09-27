@@ -31,6 +31,16 @@ export interface CartItem {
   addOns: string[];
 }
 
+export interface TreeSizeMapping {
+  size: string;
+  variant: string;
+  treePrice: number;
+  standUrl?: string;
+  standPrice?: number;
+  installationUrl?: string;
+  installationPrice?: number;
+}
+
 export interface CheckoutStep {
   id: number;
   title: string;
@@ -39,6 +49,8 @@ export interface CheckoutStep {
   collectionId?: string | null;
   productIds?: string[];
   isSpecificProducts?: boolean;
+  isStandStep?: boolean;
+  isInstallationStep?: boolean;
 }
 
 export interface OrderSummary {

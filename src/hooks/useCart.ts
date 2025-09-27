@@ -100,19 +100,37 @@ export function useCart() {
 
       while (attempts < maxAttempts) {
         attempts++;
-        console.log(`Cart load attempt ${attempts}/${maxAttempts} for cart:`, id);
+        console.log('useCart: Loading cart...', {
+          attempt: attempts,
+          maxAttempts,
+          cartId: id
+        });
 
         try {
           const cart = await ShopifyCartService.getCart(id);
           if (cart) {
-            console.log('Cart loaded successfully');
+            console.log('useCart: Cart loaded successfully', {
+              cartId: id,
+              lineItems: cart.lines?.edges?.map((edge: any) => ({
+                id: edge.node.id,
+                productTitle: edge.node.merchandise.product.title,
+                variantTitle: edge.node.merchandise.title,
+                quantity: edge.node.quantity
+              }))
+            });
+            
             setShopifyCart(cart);
             saveCartData(id, cart);
             setError(null);
             return;
           }
         } catch (error) {
-          console.error(`Cart load attempt ${attempts} failed:`, error);
+          console.error('useCart: Cart load attempt failed', {
+            attempt: attempts,
+            cartId: id,
+            error
+          });
+          
           if (attempts === maxAttempts) {
             throw error;
           }
@@ -123,7 +141,10 @@ export function useCart() {
 
       throw new Error('Failed to load cart after multiple attempts');
     } catch (error: any) {
-      console.error('Error loading cart:', error);
+      console.error('useCart: Error loading cart:', {
+        cartId: id,
+        error
+      });
       setError('Error loading cart');
     }
   }, [saveCartData]);
@@ -132,6 +153,20 @@ export function useCart() {
     setSelectedProduct(product);
     setIsLoading(true);
     setError(null);
+
+    // Log selected product details
+    const selectedVariant = product.variants.find(v => v.id === variantId);
+    console.log('useCart: Updating product selection...', {
+      productDetails: {
+        name: product.name,
+        id: product.id,
+        allVariants: product.variants.map(v => ({ id: v.id, value: v.value })),
+        selectedVariant: {
+          id: variantId,
+          value: selectedVariant?.value
+        }
+      }
+    });
 
     // Validate variant ID format
     if (!variantId || !variantId.startsWith('gid://')) {

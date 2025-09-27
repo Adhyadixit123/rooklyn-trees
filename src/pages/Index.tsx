@@ -76,14 +76,14 @@ const Index = () => {
             title: 'Tree Stand',
             description: 'Select a sturdy tree stand for your tree',
             addOns: [],
-            collectionId: 'gid://shopify/Collection/155577745488'
+            isStandStep: true
           },
           {
             id: 2,
             title: 'Tree Installation',
             description: 'Professional tree installation services',
             addOns: [],
-            collectionId: null
+            isInstallationStep: true
           },
           {
             id: 3,
@@ -283,13 +283,21 @@ const Index = () => {
 
   const handleAddToCart = async (product: Product, variantId: string) => {
     // Ensure the cart is created and saved before navigating to checkout
-    // This prevents CheckoutFlow from initializing without a cart and creating a new one
     try {
+      console.log('Index: Processing cart addition...', {
+        productName: product.name,
+        productId: product.id,
+        variantId: variantId,
+        variant: product.variants.find(v => v.id === variantId)
+      });
+
       await updateProductSelection(product, variantId);
-      console.log('Base product added to cart successfully');
+      
+      console.log('Index: Base product added to cart successfully', {
+        selectedVariant: product.variants.find(v => v.id === variantId)?.value
+      });
     } catch (error) {
-      console.error('Error adding base product to cart:', error);
-      // Even on error, proceed to checkout to allow user to retry from there
+      console.error('Index: Error adding base product to cart:', error);
     } finally {
       setAppState('checkout');
     }

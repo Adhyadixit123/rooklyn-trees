@@ -2,6 +2,60 @@ import { shopifyClient, ShopifyProduct } from '../lib/shopify';
 import { Product } from '@/types/checkout';
 
 export class ShopifyProductService {
+  static async getProductByHandle(handle: string): Promise<Product | null> {
+    try {
+      const query = `
+        query GetProductByHandle($handle: String!) {
+          product(handle: $handle) {
+            id
+            title
+            description
+            priceRange {
+              minVariantPrice {
+                amount
+                currencyCode
+              }
+            }
+            images(first: 1) {
+              edges {
+                node {
+                  url
+                  altText
+                }
+              }
+            }
+            variants(first: 10) {
+              edges {
+                node {
+                  id
+                  title
+                  price {
+                    amount
+                    currencyCode
+                  }
+                  availableForSale
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const response = await shopifyClient.request(query, {
+        variables: { handle }
+      });
+
+      if (!response.data?.product) {
+        return null;
+      }
+
+      return this.transformShopifyProduct(response.data.product);
+    } catch (error) {
+      console.error('Error fetching product by handle:', error);
+      return null;
+    }
+  }
+
   static async getProduct(productId: string): Promise<Product | null> {
     try {
       const query = `

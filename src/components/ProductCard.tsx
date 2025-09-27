@@ -63,14 +63,24 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
     try {
       // For main products, call parent callback to handle cart logic properly
       const productToAdd = availableProducts.find(p => p.id === selectedBaseProductId) || product;
-      console.log('ProductCard: Adding product to cart via parent callback...');
+      
+      // Find selected variant details
+      const selectedVariantDetails = productToAdd.variants.find(v => v.id === selectedVariant);
+      
+      console.log('ProductCard: Adding product to cart...', {
+        productName: productToAdd.name,
+        productId: productToAdd.id,
+        variantId: selectedVariant,
+        variantValue: selectedVariantDetails?.value || 'unknown',
+        variantTitle: selectedVariantDetails?.name || 'unknown'
+      });
 
       // Call the parent callback to trigger validation and auto-forward
-      console.log('ProductCard: Calling parent onAddToCart callback...');
       onAddToCart(productToAdd, selectedVariant);
-      console.log('ProductCard: Parent callback completed');
+      
+      console.log('ProductCard: Successfully added to cart');
     } catch (error) {
-      // Silent error handling - no logging
+      console.error('ProductCard: Error adding to cart:', error);
     } finally {
       // Reset the API call flag and loading state
       isApiCallInProgress.current = false;
@@ -168,9 +178,6 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             className="w-full h-80 object-cover"
           />
         )}
-        <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
-          Best Seller
-        </Badge>
       </div>
 
       <CardContent className="px-2 py-2 space-y-3">
