@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,13 +13,12 @@ interface ProductCardProps {
   availableProducts?: Product[];
   showBaseProductSelector?: boolean;
   isCartInitialized?: boolean;
+  preferredVariantLabel?: string | null;
+  lockVariantLabel?: string | null;
 }
 
-export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true, isCartInitialized = true }: ProductCardProps) {
-  // Only use variant selection if there are multiple variants and a product is selected (not none)
-  const hasMultipleVariants = product.variants.length > 1;
-
-  // If there's only one variant, use it directly
+export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true, isCartInitialized = true, preferredVariantLabel = null, lockVariantLabel = null }: ProductCardProps) {
+  // If there's only one variant, use it directly for initial state (will update on base product change)
   const defaultVariantId = product.variants.length > 0 ? product.variants[0].id : '';
   const [selectedVariant, setSelectedVariant] = useState(defaultVariantId);
   const [selectedBaseProductId, setSelectedBaseProductId] = useState<string | null>(null);
@@ -28,10 +27,31 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
   // Ref to prevent multiple API calls
   const isApiCallInProgress = useRef(false);
 
-  const selectedVariantData = product.variants.find(v => v.id === selectedVariant);
   const selectedBaseProduct = availableProducts.find(p => p.id === selectedBaseProductId);
-  const finalPrice = (selectedBaseProduct?.basePrice || product.basePrice) + (selectedVariantData?.priceModifier || 0);
+  const effectiveProduct = (showBaseProductSelector && selectedBaseProduct) ? selectedBaseProduct : product;
+  // Apply optional lock to restrict visible/selectable variants
+  const visibleVariants = lockVariantLabel
+    ? effectiveProduct.variants.filter(v => (v.value || '').toLowerCase().includes(lockVariantLabel.toLowerCase()))
+    : effectiveProduct.variants;
+
+  const hasMultipleVariants = visibleVariants.length > 1;
+  const selectedVariantData = visibleVariants.find(v => v.id === selectedVariant) || visibleVariants[0];
+  const finalPrice = (effectiveProduct.basePrice) + (selectedVariantData?.priceModifier || 0);
   const isProductSelected = selectedBaseProductId !== null;
+
+  // Auto-select preferred or locked variant if provided and available on the effective product
+  useEffect(() => {
+    const targetLabel = lockVariantLabel || preferredVariantLabel;
+    if (!targetLabel) return;
+    if (!visibleVariants || visibleVariants.length === 0) return;
+    const match = visibleVariants.find(v => (v.value || '').toLowerCase().includes(targetLabel.toLowerCase()));
+    if (match && match.id !== selectedVariant) {
+      setSelectedVariant(match.id);
+    } else if (!match && visibleVariants[0] && visibleVariants[0].id !== selectedVariant) {
+      // Fallback to first visible
+      setSelectedVariant(visibleVariants[0].id);
+    }
+  }, [preferredVariantLabel, lockVariantLabel, effectiveProduct?.id, visibleVariants.length]);
 
   const handleAddToCart = async () => {
     // Prevent multiple clicks and API calls
@@ -207,8 +227,8 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {product.variants.map((variant) => {
-                    const variantPrice = product.basePrice + variant.priceModifier;
+                  {effectiveProduct.variants.map((variant) => {
+                    const variantPrice = effectiveProduct.basePrice + variant.priceModifier;
                     const isSamePrice = variant.priceModifier === 0;
                     return (
                       <SelectItem key={variant.id} value={variant.id}>

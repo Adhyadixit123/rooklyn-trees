@@ -32,11 +32,13 @@ export interface CartItem {
 }
 
 export interface CheckoutStep {
-  collectionId: any;
   id: number;
   title: string;
   description: string;
   addOns: AddOn[];
+  collectionId?: string | null;
+  productIds?: string[];
+  isSpecificProducts?: boolean;
 }
 
 export interface OrderSummary {

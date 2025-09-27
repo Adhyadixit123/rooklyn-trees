@@ -216,6 +216,7 @@ export class ShopifyProductService {
       variants
     };
   }
+
 }
 
 export class ShopifyCartService {
@@ -605,6 +606,35 @@ export class ShopifyCartService {
     } catch (error) {
       console.error('Error fetching cart:', error);
       return null;
+    }
+  }
+
+  static async updateCartNote(cartId: string, note: string): Promise<boolean> {
+    try {
+      const query = `
+        mutation UpdateCartNote($cartId: ID!, $note: String) {
+          cartNoteUpdate(cartId: $cartId, note: $note) {
+            cart { id }
+            userErrors { code message field }
+          }
+        }
+      `;
+
+      const variables = { cartId, note };
+      const response = await shopifyClient.request(query, { variables });
+
+      if (response.data?.cartNoteUpdate?.cart?.id) {
+        return true;
+      }
+
+      const userErrors = response.data?.cartNoteUpdate?.userErrors;
+      if (userErrors && userErrors.length > 0) {
+        console.error('Update cart note user errors:', userErrors);
+      }
+      return false;
+    } catch (error) {
+      console.error('Error updating cart note:', error);
+      return false;
     }
   }
 }

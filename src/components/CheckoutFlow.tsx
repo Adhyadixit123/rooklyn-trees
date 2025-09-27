@@ -23,7 +23,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [cartValidationError, setCartValidationError] = useState<string | null>(null);
-  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart, isInitialized, validateProductInCart, refreshCartState } = useCart();
+  const { shopifyCart, addAddOn, removeAddOn, getOrderSummary, getCheckoutUrl, isLoading, updateProductSelection, loadCart, updateCartItem, removeFromCart, isInitialized, validateProductInCart, refreshCartState, setCartNote, getRecommendedStandCategory } = useCart();
 
   // Refs for mobile slider auto-scroll
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -33,6 +33,19 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const progress = ((currentStep + 1) / steps.length) * 100;
   const orderSummary = getOrderSummary();
   const checkoutUrl = getCheckoutUrl();
+
+  // Delivery details to be stored as Shopify cart note
+  const [deliveryDate, setDeliveryDate] = useState<string>('');
+  const [deliveryTime, setDeliveryTime] = useState<string>('');
+  const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+
+  const composeCartNote = () => {
+    const parts: string[] = [];
+    if (deliveryDate) parts.push(`Delivery Date: ${deliveryDate}`);
+    if (deliveryTime) parts.push(`Time: ${deliveryTime}`);
+    if (deliveryNotes) parts.push(`Notes: ${deliveryNotes}`);
+    return parts.join(' | ');
+  };
 
   // Refresh cart data when component mounts to sync with Index component
   useEffect(() => {
@@ -66,19 +79,37 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     validateCartAfterStepChange();
   }, [currentStep, shopifyCart?.id, refreshCartState]);
 
-  // Load products for current step based on collection ID
+  // Load products for current step based on collection ID or specific product IDs
   useEffect(() => {
     const loadStepProducts = async () => {
-      if (!currentStepData?.collectionId || currentStep >= steps.length - 1) {
+      if (currentStep >= steps.length - 1) {
+        setStepProducts([]);
+        return;
+      }
+
+      if (!currentStepData?.collectionId && !currentStepData?.productIds && !currentStepData?.isSpecificProducts) {
         setStepProducts([]);
         return;
       }
 
       setLoadingProducts(true);
       try {
-        console.log('Loading products for collection:', currentStepData.collectionId);
-        const products = await ShopifyProductService.getProductsByCollection(currentStepData.collectionId);
-        setStepProducts(products.slice(0, 4)); // Show up to 4 products per step
+        let products = [];
+        
+        if (currentStepData.isSpecificProducts && currentStepData.productIds) {
+          // Load specific products for insurance certificates
+          const productPromises = currentStepData.productIds.map(id => 
+            ShopifyProductService.getProduct(id)
+          );
+          const loadedProducts = await Promise.all(productPromises);
+          products = loadedProducts.filter(p => p !== null);
+        } else if (currentStepData.collectionId) {
+          // Load products from collection
+          products = await ShopifyProductService.getProductsByCollection(currentStepData.collectionId);
+        }
+
+        const isPenultimateStep = currentStep === steps.length - 2;
+        setStepProducts(isPenultimateStep ? products : products.slice(0, 4));
         console.log('Loaded products:', products.length);
       } catch (error) {
         console.error('Error loading step products:', error);
@@ -208,8 +239,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
+      // Persist order notes when leaving Step 4 (index 3) and Step 5 (index 4)
+      try {
+        if (currentStep === 3 || currentStep === 4) {
+          const note = composeCartNote();
+          if (note) {
+            await setCartNote(note);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to update cart note (non-blocking):', e);
+      }
+
       const newStep = currentStep + 1;
       setCurrentStep(newStep);
       // Auto-scroll will happen via useEffect
@@ -488,25 +531,54 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     // Step 1: Tree Stand
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Tree Stand Options</h3>
+                      {(() => {
+                        const rec = getRecommendedStandCategory?.();
+                        return rec ? (
+                          <div className="p-3 border rounded-md bg-green-50 text-green-800 text-sm">
+                            Recommended for your tree size: <strong>{rec.label}</strong>
+                          </div>
+                        ) : null;
+                      })()}
 
                       {loadingProducts ? (
                         <div className="text-center py-8">
                           <div className="text-lg text-gray-600">Loading tree stands...</div>
                         </div>
                       ) : stepProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                          {stepProducts.map((product) => (
-                            <div key={product.id} className="w-full h-full flex">
-                              <ProductCard
-                                product={product}
-                                onAddToCart={handleProductAddToCart}
-                                availableProducts={stepProducts}
-                                showBaseProductSelector={false}
-                                isCartInitialized={isInitialized}
-                              />
+                        (() => {
+                          const rec = getRecommendedStandCategory?.();
+                          const recLabel = rec?.label?.toLowerCase() || '';
+                          const filteredProducts = recLabel
+                            ? stepProducts.filter(p => p.variants?.some((v: any) => (v.value || '').toLowerCase().includes(recLabel)))
+                            : stepProducts;
+
+                          if (!filteredProducts || filteredProducts.length === 0) {
+                            return (
+                              <div className="text-center py-8">
+                                <p className="text-gray-600">No tree stand available for the selected tree size.</p>
+                                <p className="text-sm text-gray-500 mt-2">Please adjust your tree size or contact us for assistance.</p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                              {filteredProducts.map((product) => (
+                                <div key={product.id} className="w-full h-full flex">
+                                  <ProductCard
+                                    product={product}
+                                    onAddToCart={handleProductAddToCart}
+                                    availableProducts={filteredProducts}
+                                    showBaseProductSelector={false}
+                                    isCartInitialized={isInitialized}
+                                    preferredVariantLabel={getRecommendedStandCategory?.()?.label || null}
+                                    lockVariantLabel={getRecommendedStandCategory?.()?.label || null}
+                                  />
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()
                       ) : (
                         <div className="text-center py-8">
                           <p className="text-gray-600">No tree stands available at the moment.</p>
@@ -541,31 +613,33 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   )}
 
                   {currentStep === 2 && (
-                    // Step 3: Certificate of Insurance
+                    // Step 3: Certificate of Insurance - Show only the two specified products
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Insurance Certificate</h3>
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <h4 className="font-medium text-blue-900">Required for Installation Services</h4>
-                        <p className="text-sm text-blue-700 mt-1">
-                          An insurance certificate is required when you select professional installation services.
-                          This protects both you and our installation team.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="insurance-cert" className="rounded" />
-                          <label htmlFor="insurance-cert" className="text-sm">
-                            I have obtained the required insurance certificate
-                          </label>
+                      <h3 className="text-lg font-semibold">Certificate of Insurance</h3>
+                      {loadingProducts ? (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">Loading insurance certificate options...</div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="no-insurance" className="rounded" />
-                          <label htmlFor="no-insurance" className="text-sm">
-                            I do not need installation services
-                          </label>
+                      ) : stepProducts.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {stepProducts.map((product) => (
+                            <div key={product.id} className="w-full h-full flex">
+                              <ProductCard
+                                product={product}
+                                onAddToCart={handleProductAddToCart}
+                                availableProducts={stepProducts}
+                                showBaseProductSelector={false}
+                                isCartInitialized={isInitialized}
+                              />
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Insurance certificate handling will be implemented in the next phase.</p>
+                      ) : (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">No insurance certificate options available.</div>
+                          <p className="text-sm text-gray-500 mt-2">Please contact support for assistance.</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -573,145 +647,82 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     // Step 4: Delivery Date
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Select Delivery Date</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2">
-                          <h4 className="font-medium">December 20</h4>
-                          <p className="text-sm text-muted-foreground">Friday</p>
-                          <p className="text-xs text-green-600 mt-1">✓ Available</p>
-                        </Card>
-                        <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2">
-                          <h4 className="font-medium">December 21</h4>
-                          <p className="text-sm text-muted-foreground">Saturday</p>
-                          <p className="text-xs text-green-600 mt-1">✓ Available</p>
-                        </Card>
-                        <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow border-2">
-                          <h4 className="font-medium">December 22</h4>
-                          <p className="text-sm text-muted-foreground">Sunday</p>
-                          <p className="text-xs text-green-600 mt-1">✓ Available</p>
-                        </Card>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium" htmlFor="delivery-date">Delivery Date</label>
+                        <input
+                          id="delivery-date"
+                          type="date"
+                          className="w-full mt-1 p-3 border rounded-md"
+                          value={deliveryDate}
+                          onChange={(e) => setDeliveryDate(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">Choose any available date that suits you.</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">Delivery date selection will be implemented in the next phase.</p>
                     </div>
                   )}
 
                   {currentStep === 4 && (
-                    // Step 5: Delivery Date Time Notes
+                    // Step 5: Delivery Time & Notes
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Delivery Preferences</h3>
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium">Preferred Time Window</label>
-                          <Select>
+                          <Select value={deliveryTime} onValueChange={(v) => setDeliveryTime(v)}>
                             <SelectTrigger className="w-full mt-1">
                               <SelectValue placeholder="Select time preference" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="morning">Morning (9 AM - 12 PM)</SelectItem>
-                              <SelectItem value="afternoon">Afternoon (12 PM - 5 PM)</SelectItem>
-                              <SelectItem value="evening">Evening (5 PM - 8 PM)</SelectItem>
-                              <SelectItem value="anytime">Anytime</SelectItem>
+                              <SelectItem value="Morning (9 AM - 12 PM)">Morning (9 AM - 12 PM)</SelectItem>
+                              <SelectItem value="Afternoon (12 PM - 5 PM)">Afternoon (12 PM - 5 PM)</SelectItem>
+                              <SelectItem value="Evening (5 PM - 8 PM)">Evening (5 PM - 8 PM)</SelectItem>
+                              <SelectItem value="Anytime">Anytime</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Special Instructions</label>
+                          <label className="text-sm font-medium" htmlFor="delivery-notes">Special Instructions</label>
                           <textarea
+                            id="delivery-notes"
                             className="w-full mt-1 p-3 border rounded-md resize-none"
                             rows={4}
                             placeholder="Enter any special delivery instructions..."
+                            value={deliveryNotes}
+                            onChange={(e) => setDeliveryNotes(e.target.value)}
                           />
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Delivery time preferences and notes will be implemented in the next phase.</p>
+                      <p className="text-sm text-muted-foreground">Your selected date, time, and notes will be saved to your order notes.</p>
                     </div>
                   )}
 
-                  {currentStep === 5 && (
-                    // Step 6: Order Summary - Show actual order summary content
-                    <div className="space-y-6">
-                      <div className="text-center">
-                        <div className="flex justify-center mb-6">
-                          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                            <ShoppingBag className="w-8 h-8 text-primary" />
-                          </div>
+                  {currentStep === steps.length - 2 && (
+                    // New Step: Additional Accessories from specified collection
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Additional Accessories</h3>
+
+                      {loadingProducts ? (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">Loading accessories...</div>
                         </div>
-                        <h3 className="text-2xl font-bold text-foreground mb-4 text-center">Order Summary</h3>
-                        <p className="text-muted-foreground text-lg mb-6 text-center">
-                          Review your selections before proceeding to checkout
-                        </p>
-                      </div>
-
-                      {orderSummary && orderSummary.items.length > 0 ? (
-                        <div className="space-y-4">
-                          <h4 className="text-xl font-semibold">Your Items:</h4>
-                          {orderSummary.items.map((item, index) => (
-                            <Card key={index} className="p-4">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <h5 className="font-medium">{item.name}</h5>
-                                  <p className="text-sm text-muted-foreground">
-                                    Quantity: {item.quantity}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold">${item.price.toFixed(2)}</span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRemoveItem(item.lineId)}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 mt-3">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDecreaseQuantity(item.lineId, item.quantity)}
-                                  disabled={isLoading}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </Button>
-                                <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium min-w-[2rem] text-center">
-                                  {item.quantity}
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleIncreaseQuantity(item.lineId, item.quantity)}
-                                  disabled={isLoading}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </Card>
-                          ))}
-
-                          <Card className="p-4 bg-gray-50">
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <span>Subtotal</span>
-                                <span>${orderSummary.subtotal.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Tax</span>
-                                <span>${orderSummary.tax.toFixed(2)}</span>
-                              </div>
-                              <Separator />
-                              <div className="flex justify-between font-bold text-lg">
-                                <span>Total</span>
-                                <span>${orderSummary.total.toFixed(2)}</span>
-                              </div>
+                      ) : stepProducts.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                          {stepProducts.map((product) => (
+                            <div key={product.id} className="w-full h-full flex">
+                              <ProductCard
+                                product={product}
+                                onAddToCart={handleProductAddToCart}
+                                availableProducts={stepProducts}
+                                showBaseProductSelector={false}
+                                isCartInitialized={isInitialized}
+                              />
                             </div>
-                          </Card>
+                          ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          Your cart is empty. Please add some products first.
+                        <div className="text-center py-8">
+                          <p className="text-gray-600">No accessories available at the moment.</p>
+                          <p className="text-sm text-gray-500 mt-2">Please check back later or contact us for assistance.</p>
                         </div>
                       )}
                     </div>

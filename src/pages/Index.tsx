@@ -69,7 +69,7 @@ const Index = () => {
     // Create the 5-step checkout flow (skip tree selection since it's done on main page)
     const createCheckoutSteps = async () => {
       try {
-        // Define the 6 specific checkout steps (including order summary)
+        // Define the checkout steps (including order summary)
         const steps = [
           {
             id: 1,
@@ -90,7 +90,11 @@ const Index = () => {
             title: 'Certificate of Insurance',
             description: 'Insurance certificate for your tree installation',
             addOns: [],
-            collectionId: null
+            productIds: [
+              'gid://shopify/Product/7216843915344',
+              'gid://shopify/Product/7216845094992'
+            ],
+            isSpecificProducts: true
           },
           {
             id: 4,
@@ -106,8 +110,16 @@ const Index = () => {
             addOns: [],
             collectionId: null
           },
+          // New Step: Collection products before order summary
           {
             id: 6,
+            title: 'Additional Accessories',
+            description: 'Add any additional accessories from our curated collection',
+            addOns: [],
+            collectionId: 'gid://shopify/Collection/168930279504'
+          },
+          {
+            id: 7,
             title: 'Order Summary',
             description: 'Review your selections before proceeding to checkout',
             addOns: [],

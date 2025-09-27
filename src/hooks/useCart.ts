@@ -22,6 +22,8 @@ export function useCart() {
     return null;
   });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedTreeVariantLabel, setSelectedTreeVariantLabel] = useState<string | null>(null);
+  const [selectedTreeSizeFeet, setSelectedTreeSizeFeet] = useState<number | null>(null);
   const [allAddOns, setAllAddOns] = useState<AddOn[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +147,18 @@ export function useCart() {
       console.log('Variant ID:', variantId);
       console.log('Retry count:', retryCount);
 
+      // Track selected tree variant label and derive size
+      const variant = product.variants.find(v => v.id === variantId) || null;
+      const variantLabel = variant?.value || null;
+      setSelectedTreeVariantLabel(variantLabel);
+      if (variantLabel) {
+        const size = parseTreeSizeFeetFromLabel(variantLabel);
+        setSelectedTreeSizeFeet(size);
+        console.log('Derived tree size (ft):', size);
+      } else {
+        setSelectedTreeSizeFeet(null);
+      }
+
       // Create or update cart with the selected product
       if (cartId) {
         console.log('Adding to existing cart:', cartId);
@@ -228,6 +242,24 @@ export function useCart() {
     }
   }, [cartId, loadCart, saveCartData, retryCount]);
 
+  function parseTreeSizeFeetFromLabel(label: string): number | null {
+    // Extract the highest integer in feet from labels like "5-6 ft", "6-7ft", "8ft", etc.
+    const nums = (label.match(/\d+/g) || []).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+    if (nums.length === 0) return null;
+    // Heuristic: take the max as the size upper bound
+    const maxFeet = Math.max(...nums);
+    return maxFeet;
+  }
+
+  function getRecommendedStandCategory(): { label: string; maxFeet: number } | null {
+    if (!selectedTreeSizeFeet) return null;
+    const ft = selectedTreeSizeFeet;
+    if (ft <= 6) return { label: 'Up to 6 ft', maxFeet: 6 };
+    if (ft <= 8) return { label: 'Up to 8 ft', maxFeet: 8 };
+    if (ft <= 10) return { label: 'Up to 10 ft', maxFeet: 10 };
+    return { label: 'Up to 12 ft', maxFeet: 12 };
+  }
+
   const addAddOn = useCallback(async (addOnId: string) => {
     // For now, we'll handle add-ons locally since Shopify doesn't have add-on concept
     // In a real implementation, you might want to use line item properties or metafields
@@ -271,6 +303,34 @@ export function useCart() {
       setIsLoading(false);
     }
   }, [cartId, loadCart, saveCartData]);
+
+  const setCartNote = useCallback(async (note: string): Promise<boolean> => {
+    if (!cartId) {
+      setError('No cart available');
+      return false;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const success = await ShopifyCartService.updateCartNote(cartId, note);
+      if (success) {
+        // Small delay to allow Shopify to persist note
+        await new Promise((r) => setTimeout(r, 300));
+        await loadCart(cartId);
+        return true;
+      }
+      setError('Failed to update order notes');
+      return false;
+    } catch (e: any) {
+      console.error('Error updating cart note:', e);
+      setError(e.message || 'Error updating order notes');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cartId, loadCart]);
 
   const removeFromCart = useCallback(async (lineId: string) => {
     if (!cartId) {
@@ -456,6 +516,10 @@ export function useCart() {
     error,
     setAllAddOns,
     isInitialized,
-    retryCount
+    retryCount,
+    setCartNote,
+    selectedTreeVariantLabel,
+    selectedTreeSizeFeet,
+    getRecommendedStandCategory
   };
 }
