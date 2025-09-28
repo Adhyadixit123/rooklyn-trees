@@ -15,9 +15,11 @@ interface ProductCardProps {
   isCartInitialized?: boolean;
   preferredVariantLabel?: string | null;
   lockVariantLabel?: string | null;
+  cartData?: any; // Shopify cart data to check quantities
+  showQuantityCounter?: boolean; // Whether to show quantity counter
 }
 
-export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true, isCartInitialized = true, preferredVariantLabel = null, lockVariantLabel = null }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, availableProducts = [], showBaseProductSelector = true, isCartInitialized = true, preferredVariantLabel = null, lockVariantLabel = null, cartData = null, showQuantityCounter = false }: ProductCardProps) {
   // If there's only one variant, use it directly for initial state (will update on base product change)
   const defaultVariantId = product.variants.length > 0 ? product.variants[0].id : '';
   const [selectedVariant, setSelectedVariant] = useState(defaultVariantId);
@@ -103,6 +105,17 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
         setSelectedVariant(defaultVariantId);
       }
     }
+  };
+
+  // Function to get quantity of current product variant in cart
+  const getProductQuantityInCart = () => {
+    if (!cartData || !cartData.lines || !selectedVariant) return 0;
+    
+    const cartLine = cartData.lines.edges?.find((edge: any) => 
+      edge.node.merchandise.id === selectedVariant
+    );
+    
+    return cartLine ? cartLine.node.quantity : 0;
   };
 
   // Don't render if no variants are available
@@ -281,7 +294,13 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             ) : (
               <>
                 <ShoppingCart className="w-5 h-5 mr-2" />
-                Select
+                {showQuantityCounter && getProductQuantityInCart() > 0 ? (
+                  <>
+                    Add More ({getProductQuantityInCart()} in cart)
+                  </>
+                ) : (
+                  'Select'
+                )}
               </>
             )}
           </Button>

@@ -202,7 +202,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     };
 
     loadStepProducts();
-  }, [currentStep, currentStepData, steps, shopifyCart]);
+  }, [currentStep, currentStepData, steps]);
 
   // Auto-scroll to top when step changes (proceed to next step)
   useEffect(() => {
@@ -295,25 +295,41 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     console.log('Product:', product.name, 'Variant ID:', variantId);
     console.log('Current step:', currentStep, 'Step name:', currentStepData?.title);
 
-    // Treat all additions in CheckoutFlow as add-ons: advance immediately, add in background
-    console.log('Processing add-on product addition...');
-    const nextStep = Math.min(currentStep + 1, steps.length - 1);
-    setCurrentStep(nextStep);
-    // Scroll to top for the next step immediately
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Check if we're on the Additional Accessories step (second to last step)
+    const isAccessoriesStep = currentStep === steps.length - 2;
+    
+    if (isAccessoriesStep) {
+      // For accessories step: don't auto-advance, allow multiple selections
+      console.log('Processing accessory addition without auto-advance...');
+      try {
+        console.log('Calling updateProductSelection for accessory...');
+        await updateProductSelection(product, variantId);
+        console.log('✅ Accessory added to cart successfully');
+      } catch (error) {
+        console.error('❌ Error adding accessory to cart:', error);
+        // Show error but don't block the flow
+      }
+    } else {
+      // For other steps: advance immediately, add in background (existing behavior)
+      console.log('Processing add-on product addition...');
+      const nextStep = Math.min(currentStep + 1, steps.length - 1);
+      setCurrentStep(nextStep);
+      // Scroll to top for the next step immediately
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Process cart addition in the background - user doesn't need to wait for this
-    try {
-      console.log('Calling updateProductSelection for add-on...');
-      await updateProductSelection(product, variantId);
-      console.log('✅ Add-on product added to cart successfully in background');
-      // Skip immediate validation to avoid transient false negatives while Shopify state syncs.
-      // The final summary and sidebar will reflect the true cart state after sync.
-    } catch (error) {
-      console.error('❌ Error adding add-on product to cart (non-blocking):', error);
-      // Do not surface a blocking error here; user has already advanced.
-      // Don't interrupt the user flow - they can continue with the checkout process
-      // The cart sync will happen when they reach the final step
+      // Process cart addition in the background - user doesn't need to wait for this
+      try {
+        console.log('Calling updateProductSelection for add-on...');
+        await updateProductSelection(product, variantId);
+        console.log('✅ Add-on product added to cart successfully in background');
+        // Skip immediate validation to avoid transient false negatives while Shopify state syncs.
+        // The final summary and sidebar will reflect the true cart state after sync.
+      } catch (error) {
+        console.error('❌ Error adding add-on product to cart (non-blocking):', error);
+        // Do not surface a blocking error here; user has already advanced.
+        // Don't interrupt the user flow - they can continue with the checkout process
+        // The cart sync will happen when they reach the final step
+      }
     }
   };
 
@@ -911,6 +927,8 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                                 availableProducts={stepProducts}
                                 showBaseProductSelector={false}
                                 isCartInitialized={isInitialized}
+                                cartData={shopifyCart}
+                                showQuantityCounter={true}
                               />
                             </div>
                           ))}
@@ -950,7 +968,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   </>
                 ) : (
                   <>
-                    {isCartSummaryStep ? 'Proceed to Checkout' : 'Continue'}
+                    {isCartSummaryStep ? 'Proceed to Checkout' : (currentStep === steps.length - 2 ? 'Continue' : 'Skip')}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
