@@ -181,7 +181,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
       </div>
 
       <CardContent className="px-2 py-2 space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-2">
           {[...Array(5)].map((_, i) => (
             <Star key={i} className="w-4 h-4 fill-warning text-warning" />
           ))}
@@ -291,11 +291,11 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-muted-foreground">Free Shipping</span>
+              <span className="text-muted-foreground">Free Shipping on Selected Items</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-muted-foreground">30-Day Returns</span>
+              <span className="text-muted-foreground">Non-Returnable Items</span>
             </div>
           </div>
         </div>
