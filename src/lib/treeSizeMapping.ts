@@ -7,6 +7,17 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
       treeStand: null,
       installation: null
     },
+    '4\'': {
+      price: 109.99,
+      treeStand: {
+        url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-6ft',
+        price: 34.99
+      },
+      installation: {
+        url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-1',
+        price: 25
+      }
+    },
     '5\'': {
       price: 124.99,
       treeStand: {

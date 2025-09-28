@@ -403,68 +403,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   return (
     <div className="w-full bg-white">
       <div className="w-full px-4 md:px-8 lg:px-12 py-4 max-w-7xl mx-auto">
-        {/* Cart Validation Messages */}
-        {cartValidationError && (
-          <div className={`mb-4 p-4 rounded-lg ${
-            cartValidationError.includes('included') || cartValidationError.includes('proceed')
-              ? 'bg-blue-50 border border-blue-200'
-              : 'bg-red-50 border border-red-200'
-          }`}>
-            <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                cartValidationError.includes('included') || cartValidationError.includes('proceed')
-                  ? 'bg-blue-500'
-                  : 'bg-red-500'
-              }`}>
-                {cartValidationError.includes('included') || cartValidationError.includes('proceed') ? (
-                  <svg 
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                ) : (
-                  <span className="text-white text-xs font-bold">!</span>
-                )}
-              </div>
-              <div className="flex-1">
-                <p className={`font-medium ${
-                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
-                    ? 'text-blue-800'
-                    : 'text-red-800'
-                }`}>
-                  {cartValidationError.includes('included') || cartValidationError.includes('proceed')
-                    ? 'Information'
-                    : 'Cart Validation Error'}
-                </p>
-                <p className={`text-sm ${
-                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
-                    ? 'text-blue-600'
-                    : 'text-red-600'
-                }`}>
-                  {cartValidationError}
-                </p>
-              </div>
-              <button
-                onClick={() => setCartValidationError(null)}
-                className={`text-lg font-bold ${
-                  cartValidationError.includes('included') || cartValidationError.includes('proceed')
-                    ? 'text-blue-600 hover:text-blue-800'
-                    : 'text-red-600 hover:text-red-800'
-                }`}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Cart Validation Messages - Removed as per request */}
 
         {/* Progress Header */}
         <div className="mb-8">
@@ -746,6 +685,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                             : stepProducts;
 
                           if (!filteredProducts || filteredProducts.length === 0) {
+                            const selectedVariant = getSelectedTreeVariant();
+                            const selectedType = getSelectedTreeType();
+                            const mapping = selectedType && selectedVariant 
+                              ? getTreeSizeMapping(selectedType as keyof typeof treeSizeMappings, selectedVariant)
+                              : null;
+                            
+                            if (mapping && mapping.treeStand === null) {
+                              return (
+                                <div className="text-center py-8">
+                                  <p className="text-gray-600">No stand required for this tree size.</p>
+                                </div>
+                              );
+                            }
+                            
                             return (
                               <div className="text-center py-8">
                                 <p className="text-gray-600">No tree stand available for the selected tree size.</p>
@@ -774,8 +727,8 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         })()
                       ) : (
                         <div className="text-center py-8">
-                          <p className="text-gray-600">No tree stands available at the moment.</p>
-                          <p className="text-sm text-gray-500 mt-2">Please check back later or contact us for assistance.</p>
+                          <p className="text-gray-600">No tree stand required for this product .</p>
+                          <p className="text-sm text-gray-500 mt-2">Proceed firther to next step.</p>
                         </div>
                       )}
                     </div>
@@ -805,7 +758,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         </div>
                       ) : (
                         <div className="text-center py-8">
-                          <div className="text-lg text-gray-600">No installation options available for your tree size.</div>
+                          <div className="text-lg text-gray-600">No installation options required for your tree size.</div>
                           <p className="text-sm text-gray-500 mt-2">Please continue to the next step.</p>
                         </div>
                       )}
@@ -921,6 +874,21 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground">Your selected date, time, and notes will be saved to your order notes.</p>
+                      
+                      <div className="mt-4 p-4 bg-amber-50 border-l-4 border-amber-400 text-amber-700">
+                        <p className="font-medium">⚠️ Same-Day Delivery Cut-Off Times</p>
+                        <p className="text-sm mt-2">
+                          We offer same-day delivery, but please note the following cut-off rules:
+                        </p>
+                        <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
+                          <li>Orders must be placed before 11:30 AM to qualify for the 8 AM – 2 PM delivery slot.</li>
+                          <li>Orders placed after 11:30 AM but before 2:00 PM qualify only for the 2 PM – 8 PM delivery slot.</li>
+                          <li>After 2:00 PM, same-day delivery is no longer available. Orders placed after this time will be scheduled for delivery the next day.</li>
+                        </ul>
+                        <p className="text-sm mt-2">
+                          Thank you for understanding — this helps us ensure timely deliveries for everyone.
+                        </p>
+                      </div>
                     </div>
                   )}
 

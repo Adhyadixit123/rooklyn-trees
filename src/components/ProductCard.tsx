@@ -199,6 +199,14 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
           {/* Base Product Selection Dropdown - Only show if multiple products are available and showBaseProductSelector is true */}
           {showBaseProductSelector && availableProducts.length > 1 && (
             <div key={`base-selector-${selectedBaseProductId || 'none'}`}>
+              {!isProductSelected && (
+                <div className="mb-2 text-sm text-muted-foreground">
+                  <p className="mb-1">• <span className="font-medium text-foreground">Fraser Fir:</span> Premium choice</p>
+                  <p className="mb-1">  Excellent needle retention & strong branches</p>
+                  <p className="mb-1">• <span className="font-medium text-foreground">Balsam Fir:</span> Classic choice</p>
+                  <p>  Soft needles & traditional holiday scent</p>
+                </div>
+              )}
               <label className="text-sm font-medium text-foreground">Select Tree Type</label>
               <Select value={selectedBaseProductId || 'none'} onValueChange={handleBaseProductChange}>
                 <SelectTrigger className="w-full mt-1">
