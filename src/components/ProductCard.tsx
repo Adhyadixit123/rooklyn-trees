@@ -202,9 +202,14 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">
+          <h2 className="text-2xl font-bold text-foreground mb-1">
             {showBaseProductSelector && !isProductSelected ? "Choose Your Tree" : product.name}
           </h2>
+          {(!showBaseProductSelector || isProductSelected) && (
+            <p className="text-lg font-semibold text-primary mb-2">
+              ${finalPrice.toFixed(2)}
+            </p>
+          )}
           {/* Product description hidden as requested */}
         </div>
 
