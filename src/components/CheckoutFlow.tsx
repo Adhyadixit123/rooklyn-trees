@@ -35,6 +35,10 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [progress, setProgress] = useState(0);
   const orderSummary = getOrderSummary();
   const checkoutUrl = getCheckoutUrl();
+  // Persist last known tree selection so step loaders don't break on transient cart order/sync
+  const [lastSelectedTreeType, setLastSelectedTreeType] = useState<string | null>(null);
+  const [lastSelectedTreeVariant, setLastSelectedTreeVariant] = useState<string | null>(null);
+  const loadRetryRef = useRef(0);
 
   // Handle progress animation
   useEffect(() => {
@@ -59,6 +63,38 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     if (deliveryNotes) parts.push(`Notes: ${deliveryNotes}`);
     return parts.join(' | ');
   };
+
+  // Delivery time window logic based on New York time and selected date
+  const getNYNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const nyNow = getNYNow();
+  const nyTodayStr = `${nyNow.getFullYear()}-${pad(nyNow.getMonth() + 1)}-${pad(nyNow.getDate())}`;
+  const isTodayNY = deliveryDate && deliveryDate === nyTodayStr;
+  const minutesNowNY = nyNow.getHours() * 60 + nyNow.getMinutes();
+  const cutoff1130 = 11 * 60 + 30;
+  const cutoff1400 = 14 * 60;
+
+  const availableTimeSlots: string[] = (() => {
+    if (!deliveryDate) return [];
+    if (isTodayNY) {
+      if (minutesNowNY < cutoff1130) return ['8 AM – 2 PM', '2 PM – 8 PM'];
+      if (minutesNowNY < cutoff1400) return ['2 PM – 8 PM'];
+      // After 2 PM same-day not available
+      return [];
+    }
+    // Future date: both slots available
+    return ['8 AM – 2 PM', '2 PM – 8 PM'];
+  })();
+
+  const isTimeSelectDisabled = !deliveryDate || availableTimeSlots.length === 0;
+  const after2pmSameDay = Boolean(isTodayNY && availableTimeSlots.length === 0 && minutesNowNY >= cutoff1400);
+
+  // If the currently selected time is no longer valid for the chosen date/time, clear it
+  useEffect(() => {
+    if (deliveryTime && !availableTimeSlots.includes(deliveryTime)) {
+      setDeliveryTime('');
+    }
+  }, [deliveryDate, minutesNowNY]);
 
   // Refresh cart data when component mounts to sync with Index component
   useEffect(() => {
@@ -92,30 +128,42 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     validateCartAfterStepChange();
   }, [currentStep, shopifyCart?.id, refreshCartState]);
 
-  // Get selected tree type and size from cart
+  // Get selected tree type and size from cart (robust across line order)
   const getSelectedTreeType = (): string | null => {
-    if (!shopifyCart?.lines?.edges || shopifyCart.lines.edges.length === 0) return null;
-    const treeProduct = shopifyCart.lines.edges[0]?.node?.merchandise?.product;
-    if (!treeProduct) return null;
-    
-    // Check if the product title contains either "Fraser Fir" or "Balsam Fir"
-    if (treeProduct.title.includes('Fraser Fir')) return 'Fraser Fir';
-    if (treeProduct.title.includes('Balsam Fir')) return 'Balsam Fir';
-    return null;
+    const edges = shopifyCart?.lines?.edges || [];
+    for (const edge of edges) {
+      const productTitle = edge?.node?.merchandise?.product?.title || '';
+      if (productTitle.includes('Fraser Fir')) return 'Fraser Fir';
+      if (productTitle.includes('Balsam Fir')) return 'Balsam Fir';
+    }
+    return lastSelectedTreeType;
   };
 
   const getSelectedTreeVariant = () => {
-    if (!shopifyCart?.lines?.edges || shopifyCart.lines.edges.length === 0) return null;
-    const treeVariant = shopifyCart.lines.edges[0]?.node?.merchandise;
-    if (!treeVariant) return null;
-    
-    // Format the variant title to match our mapping (e.g., "7" becomes "7'")
-    const variantNumber = treeVariant.title.replace(/[^0-9]/g, '');
-    return variantNumber ? `${variantNumber}'` : treeVariant.title;
+    const edges = shopifyCart?.lines?.edges || [];
+    for (const edge of edges) {
+      const productTitle = edge?.node?.merchandise?.product?.title || '';
+      if (!productTitle) continue;
+      if (!productTitle.includes('Fraser Fir') && !productTitle.includes('Balsam Fir')) continue;
+      const title = edge?.node?.merchandise?.title || '';
+      const variantNumber = title.replace(/[^0-9]/g, '');
+      return variantNumber ? `${variantNumber}'` : title;
+    }
+    return lastSelectedTreeVariant;
   };
+
+  // Keep last-known selection in sync whenever cart lines update
+  useEffect(() => {
+    const type = getSelectedTreeType();
+    const size = getSelectedTreeVariant();
+    if (type) setLastSelectedTreeType(type);
+    if (size) setLastSelectedTreeVariant(size);
+  }, [shopifyCart?.lines?.edges?.length]);
 
   // Load products for current step based on collection ID, specific product IDs, or tree size
   useEffect(() => {
+    // reset retry counter whenever step changes
+    loadRetryRef.current = 0;
     const loadStepProducts = async () => {
       if (currentStep >= steps.length - 1) {
         setStepProducts([]);
@@ -135,8 +183,34 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
           products = loadedProducts.filter(p => p !== null);
         } else if (currentStepData.isStandStep || currentStepData.isInstallationStep) {
           // Get the selected tree variant and type from the cart
-          const selectedVariant = getSelectedTreeVariant();
-          const selectedType = getSelectedTreeType();
+          let selectedVariant = getSelectedTreeVariant();
+          let selectedType = getSelectedTreeType();
+
+          // If cart hasn't synced yet when navigating back, try a quick refresh once
+          if (!selectedVariant || !selectedType) {
+            try {
+              await refreshCartState();
+            } catch {}
+            selectedVariant = getSelectedTreeVariant();
+            selectedType = getSelectedTreeType();
+          }
+
+          // If still unavailable, keep previous products instead of clearing to avoid UI flicker
+          if (!selectedVariant || !selectedType) {
+            // schedule a short retry (max 3 attempts)
+            if (loadRetryRef.current < 3) {
+              loadRetryRef.current += 1;
+              setTimeout(() => {
+                // re-run loading by setting state dependency (toggle progress slightly)
+                // simply call the loader again
+                loadStepProducts();
+              }, 250);
+              return;
+            }
+            setLoadingProducts(false);
+            return;
+          }
+
           if (selectedVariant && selectedType) {
             // Get the mapping for the selected tree type and size
             const mapping = getTreeSizeMapping(selectedType as keyof typeof treeSizeMappings, selectedVariant);
@@ -170,6 +244,14 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     setCartValidationError(null); // Clear any previous messages
                   } else {
                     console.error('Product not found for handle:', handle);
+                    // Retry once or twice before giving up
+                    if (loadRetryRef.current < 2) {
+                      loadRetryRef.current += 1;
+                      setTimeout(() => {
+                        loadStepProducts();
+                      }, 300);
+                      return;
+                    }
                     setStepProducts([]);
                     setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
                   }
@@ -195,14 +277,21 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
         console.log('Loaded products:', products.length);
       } catch (error) {
         console.error('Error loading step products:', error);
-        setStepProducts([]);
+        // On transient errors, keep previous products and retry a few times
+        if (loadRetryRef.current < 3) {
+          loadRetryRef.current += 1;
+          setTimeout(() => {
+            loadStepProducts();
+          }, 300);
+          return;
+        }
       } finally {
         setLoadingProducts(false);
       }
     };
 
     loadStepProducts();
-  }, [currentStep, currentStepData, steps]);
+  }, [currentStep, currentStepData, steps, shopifyCart?.id, shopifyCart?.lines?.edges?.length, lastSelectedTreeType, lastSelectedTreeVariant]);
 
   // Auto-scroll to top when step changes (proceed to next step)
   useEffect(() => {
@@ -865,17 +954,22 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium">Preferred Time Window</label>
-                          <Select value={deliveryTime} onValueChange={(v) => setDeliveryTime(v)}>
+                          <Select value={deliveryTime} onValueChange={(v) => setDeliveryTime(v)} disabled={isTimeSelectDisabled}>
                             <SelectTrigger className="w-full mt-1">
-                              <SelectValue placeholder="Select time preference" />
+                              <SelectValue placeholder={deliveryDate ? (after2pmSameDay ? 'Same-day unavailable — choose next day' : 'Select time preference') : 'Select delivery date first'} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Morning (9 AM - 12 PM)">Morning (9 AM - 12 PM)</SelectItem>
-                              <SelectItem value="Afternoon (12 PM - 5 PM)">Afternoon (12 PM - 5 PM)</SelectItem>
-                              <SelectItem value="Evening (5 PM - 8 PM)">Evening (5 PM - 8 PM)</SelectItem>
-                              <SelectItem value="Anytime">Anytime</SelectItem>
+                              {availableTimeSlots.map((slot) => (
+                                <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
+                          {!deliveryDate && (
+                            <p className="text-xs text-muted-foreground mt-1">Please select a delivery date first.</p>
+                          )}
+                          {after2pmSameDay && (
+                            <p className="text-xs text-amber-700 mt-2">Same-day cut-off has passed in New York. Please select tomorrow or a later date to see available time windows.</p>
+                          )}
                         </div>
                         <div>
                           <label className="text-sm font-medium" htmlFor="delivery-notes">Special Instructions</label>

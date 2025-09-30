@@ -232,16 +232,11 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">
-                    <span>None</span>
+                    None
                   </SelectItem>
-                  {availableProducts.map((availableProduct) => (
-                    <SelectItem key={availableProduct.id} value={availableProduct.id}>
-                      <div className="flex justify-between items-center w-full">
-                        <span>{availableProduct.name}</span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          ${availableProduct.basePrice}
-                        </span>
-                      </div>
+                  {availableProducts.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -251,32 +246,23 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
 
           {/* Show variant selector based on product type */}
           {hasMultipleVariants && (
-            showBaseProductSelector ? isProductSelected : true
-          ) && (
-            <div key={`variant-selector-${selectedBaseProductId}`}>
-              <label className="text-sm font-medium text-foreground">Select Size</label>
-              <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {effectiveProduct.variants.map((variant) => {
-                    const variantPrice = effectiveProduct.basePrice + variant.priceModifier;
-                    const isSamePrice = variant.priceModifier === 0;
-                    return (
+            (showBaseProductSelector ? isProductSelected : true) && (
+              <div key={`variant-selector-${selectedBaseProductId}`}>
+                <label className="text-sm font-medium text-foreground">Select Size</label>
+                <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {effectiveProduct.variants.map((variant) => (
                       <SelectItem key={variant.id} value={variant.id}>
-                        <div className="flex justify-between items-center w-full">
-                          <span>{variant.value}</span>
-                          <span className="text-sm text-muted-foreground ml-2">
-                            ${variantPrice.toFixed(2)}
-                          </span>
-                        </div>
+                        {variant.value}
                       </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
           )}
 
           <Button
@@ -319,7 +305,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-muted-foreground">Non-Returnable Items</span>
+              <span className="text-muted-foreground">Same day delivery</span>
             </div>
           </div>
         </div>
