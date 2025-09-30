@@ -43,7 +43,7 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
     '7\'': {
       price: 229.99,
       treeStand: {
-        url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-6ft',
+        url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-8ft',
         price: 44.99
       },
       installation: {
@@ -65,7 +65,7 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
     '9\'': {
       price: 429.99,
       treeStand: {
-        url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-8ft',
+        url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-10ft',
         price: 64.99
       },
       installation: {
@@ -87,7 +87,7 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
     '11\'': {
       price: 699.99,
       treeStand: {
-        url: 'https://brooklynchristmastree.com/products/tree-stand-up-to-10ft',
+        url: 'https://brooklynchristmastree.com/products/tree-stand-up-to-12ft',
         price: 99.99
       },
       installation: {
