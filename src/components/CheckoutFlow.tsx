@@ -1062,7 +1062,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   </>
                 ) : (
                   <>
-                    {isCartSummaryStep ? 'Proceed to Checkout' : (currentStep === steps.length - 2 ? 'Continue' : 'Skip')}
+                    {isCartSummaryStep ? 'Proceed to Checkout' : (currentStep === 3 || currentStep === 4 ? 'Continue' : (currentStep === steps.length - 2 ? 'Continue' : 'Skip'))}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
