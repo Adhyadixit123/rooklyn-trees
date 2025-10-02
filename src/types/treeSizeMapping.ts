@@ -11,16 +11,16 @@ export interface TreeSizeMapping {
     treeType: TreeType;
     size: TreeSize;
     price: number | null; // null for "Call for pricing"
-    treeStand: ProductLink | null; // null when no stand available
-    installation: ProductLink | null; // null when no installation available
+    treeStand: ProductLink[] | null; // null when no stand available; supports multiple products
+    installation: ProductLink[] | null; // null when no installation available; supports multiple products
 }
 
 export interface TreeSizeMappingRecord {
     [key: string]: {
         [size: string]: {
             price: number | null;
-            treeStand: ProductLink | null;
-            installation: ProductLink | null;
+            treeStand: ProductLink[] | null;
+            installation: ProductLink[] | null;
         }
     }
 }

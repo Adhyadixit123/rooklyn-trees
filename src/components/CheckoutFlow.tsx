@@ -215,46 +215,98 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
             // Get the mapping for the selected tree type and size
             const mapping = getTreeSizeMapping(selectedType as keyof typeof treeSizeMappings, selectedVariant);
             if (mapping) {
-              const productLink = currentStepData.isStandStep ? mapping.treeStand : mapping.installation;
-              
-              // If there's no product link or it's marked as included (null), show a message and let user proceed
-              if (!productLink) {
-                if (currentStepData.isStandStep) {
+              if (currentStepData.isStandStep) {
+                const standLinks = mapping.treeStand; // ProductLink[] | null
+                if (!standLinks || standLinks.length === 0) {
                   setStepProducts([]);
-                  // Show informational message that stand is included/not needed
                   setCartValidationError("Tree stand is included with this size. You can proceed to the next step.");
-                } else if (currentStepData.isInstallationStep) {
-                  setStepProducts([]);
-                  // Show informational message that installation is not available
-                  setCartValidationError("Installation service is not available for this size. You can proceed to the next step.");
+                  return;
                 }
-                return;
-              }
 
-              // If there's a product link, try to fetch the product
-              if (productLink.url) {
-                const urlParts = productLink.url.split('/products/');
-                if (urlParts.length === 2) {
-                  const handle = urlParts[1].split('?')[0]; // Remove any query parameters
-                  console.log('Fetching product by handle:', handle);
-                  const product = await ShopifyProductService.getProductByHandle(handle);
-                  if (product) {
-                    console.log('Found product:', product);
-                    products = [product];
-                    setCartValidationError(null); // Clear any previous messages
+                // Debug logging for specific tree sizes
+                if (selectedType === "Fraser Fir" && (selectedVariant === "9'" || selectedVariant === "11'")) {
+                  console.log(`Debug - Loading stand products for ${selectedType} ${selectedVariant}`);
+                  console.log("Stand links:", JSON.stringify(standLinks, null, 2));
+                }
+
+                // Fetch all stand products
+                const fetchedStandProducts: any[] = [];
+                for (const link of standLinks) {
+                  if (!link?.url) continue;
+                  
+                  // Extract handle from URL - handle different URL formats
+                  let handle = '';
+                  const productMatch = link.url.match(/\/products\/([^?]+)/);
+                  if (productMatch && productMatch[1]) {
+                    handle = productMatch[1];
                   } else {
-                    console.error('Product not found for handle:', handle);
-                    // Retry once or twice before giving up
-                    if (loadRetryRef.current < 2) {
-                      loadRetryRef.current += 1;
-                      setTimeout(() => {
-                        loadStepProducts();
-                      }, 300);
-                      return;
-                    }
-                    setStepProducts([]);
-                    setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
+                    console.error('Could not extract handle from URL:', link.url);
+                    continue;
                   }
+                  
+                  try {
+                    console.log(`Fetching product by handle: ${handle} (from URL: ${link.url})`);
+                    const product = await ShopifyProductService.getProductByHandle(handle);
+                    if (product) {
+                      fetchedStandProducts.push(product);
+                      console.log('Successfully fetched product:', product.title);
+                    } else {
+                      console.error('Product not found for handle:', handle);
+                    }
+                  } catch (err) {
+                    console.error('Error fetching product for handle:', handle, 'Error:', err);
+                  }
+                }
+
+                if (fetchedStandProducts.length > 0) {
+                  products = fetchedStandProducts;
+                  setCartValidationError(null);
+                } else {
+                  if (loadRetryRef.current < 2) {
+                    loadRetryRef.current += 1;
+                    setTimeout(() => { loadStepProducts(); }, 300);
+                    return;
+                  }
+                  setStepProducts([]);
+                  setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
+                }
+              } else if (currentStepData.isInstallationStep) {
+                const installLinks = mapping.installation; // ProductLink[] | null
+                if (!installLinks || installLinks.length === 0) {
+                  setStepProducts([]);
+                  setCartValidationError("Installation service is not available for this size. You can proceed to the next step.");
+                  return;
+                }
+
+                // Fetch all installation products
+                const fetchedProducts: any[] = [];
+                for (const link of installLinks) {
+                  if (!link?.url) continue;
+                  const urlParts = link.url.split('/products/');
+                  if (urlParts.length !== 2) continue;
+                  const handle = urlParts[1].split('?')[0];
+                  try {
+                    console.log('Fetching product by handle:', handle);
+                    const product = await ShopifyProductService.getProductByHandle(handle);
+                    if (product) {
+                      fetchedProducts.push(product);
+                    }
+                  } catch (err) {
+                    console.error('Error fetching product for handle:', handle, err);
+                  }
+                }
+
+                if (fetchedProducts.length > 0) {
+                  products = fetchedProducts;
+                  setCartValidationError(null);
+                } else {
+                  if (loadRetryRef.current < 2) {
+                    loadRetryRef.current += 1;
+                    setTimeout(() => { loadStepProducts(); }, 300);
+                    return;
+                  }
+                  setStepProducts([]);
+                  setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
                 }
               }
             } else {
@@ -930,14 +982,31 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           onChange={(e) => {
                             const selectedDate = new Date(e.target.value);
                             const minDate = new Date('2025-11-22');
-                            
+
                             if (selectedDate < minDate) {
                               setCartValidationError('Please select a date on or after November 22, 2025');
                               return;
                             }
-                            
+
                             setCartValidationError(null);
                             setDeliveryDate(e.target.value);
+                          }}
+                          onFocus={(e) => {
+                            // Ensure the min date is properly enforced for mobile browsers
+                            const minDate = new Date('2025-11-22');
+                            e.target.min = minDate.toISOString().split('T')[0];
+                          }}
+                          onClick={(e) => {
+                            // For mobile browsers that don't respect min attribute in date picker
+                            const minDate = new Date('2025-11-22');
+                            const selectedDate = e.target.value ? new Date(e.target.value) : null;
+
+                            // If no date selected or selected date is before min, set to min date
+                            if (!selectedDate || selectedDate < minDate) {
+                              e.target.value = minDate.toISOString().split('T')[0];
+                              setDeliveryDate(minDate.toISOString().split('T')[0]);
+                              setCartValidationError(null);
+                            }
                           }}
                         />
                         <p className="text-xs text-muted-foreground">
@@ -1193,6 +1262,49 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
               </Card>
             </div>
           )}
+        </div>
+
+        {/* Bottom Order Summary visible on all steps */}
+        <div className="mt-8">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Updated Order</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {orderSummary && orderSummary.items && orderSummary.items.length > 0 ? (
+                <>
+                  {orderSummary.items.map((item, index) => (
+                    <div key={index} className="flex justify-between items-start py-2">
+                      <div className="flex-1 pr-4">
+                        <p className="text-sm font-medium leading-tight">{item.name}</p>
+                        {item.quantity > 1 && (
+                          <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold">${item.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <Separator className="my-3" />
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal</span>
+                      <span>${orderSummary.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax</span>
+                      <span>${orderSummary.tax.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base">
+                      <span>Total</span>
+                      <span>${orderSummary.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Your cart is empty.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
