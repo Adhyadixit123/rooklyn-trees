@@ -979,8 +979,8 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           className="w-full mt-1 p-3 border rounded-md"
                           value={deliveryDate}
                           min="2025-11-22" // Set minimum date
-                          onChange={(e) => {
-                            const selectedDate = new Date(e.target.value);
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            const selectedDate = new Date(e.currentTarget.value);
                             const minDate = new Date('2025-11-22');
 
                             if (selectedDate < minDate) {
@@ -989,21 +989,21 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                             }
 
                             setCartValidationError(null);
-                            setDeliveryDate(e.target.value);
+                            setDeliveryDate(e.currentTarget.value);
                           }}
-                          onFocus={(e) => {
+                          onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
                             // Ensure the min date is properly enforced for mobile browsers
                             const minDate = new Date('2025-11-22');
-                            e.target.min = minDate.toISOString().split('T')[0];
+                            e.currentTarget.min = minDate.toISOString().split('T')[0];
                           }}
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent<HTMLInputElement>) => {
                             // For mobile browsers that don't respect min attribute in date picker
                             const minDate = new Date('2025-11-22');
-                            const selectedDate = e.target.value ? new Date(e.target.value) : null;
+                            const selectedDate = e.currentTarget.value ? new Date(e.currentTarget.value) : null;
 
                             // If no date selected or selected date is before min, set to min date
                             if (!selectedDate || selectedDate < minDate) {
-                              e.target.value = minDate.toISOString().split('T')[0];
+                              e.currentTarget.value = minDate.toISOString().split('T')[0];
                               setDeliveryDate(minDate.toISOString().split('T')[0]);
                               setCartValidationError(null);
                             }
@@ -1048,7 +1048,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                             rows={4}
                             placeholder="Enter any special delivery instructions..."
                             value={deliveryNotes}
-                            onChange={(e) => setDeliveryNotes(e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeliveryNotes(e.currentTarget.value)}
                           />
                         </div>
                       </div>
