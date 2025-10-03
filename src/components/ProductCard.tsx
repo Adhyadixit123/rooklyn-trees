@@ -40,6 +40,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
   const selectedVariantData = visibleVariants.find(v => v.id === selectedVariant) || visibleVariants[0];
   const finalPrice = (effectiveProduct.basePrice) + (selectedVariantData?.priceModifier || 0);
   const isProductSelected = selectedBaseProductId !== null;
+  const isCallOptionSelected = selectedVariant === 'call-for-pricing';
 
   // Auto-select preferred or locked variant if provided and available on the effective product
   useEffect(() => {
@@ -263,12 +264,9 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                     <SelectItem 
                       value="call-for-pricing" 
                       className="font-medium text-primary hover:bg-primary/10"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.location.href = 'https://brooklynchristmastree.com/pages/contact-us';
-                      }}
+                      /* Selecting this option will set value via Select onValueChange */
                     >
-                      {effectiveProduct.name.toLowerCase().includes('balsam') ? "8'" : "12+'"} Call for Pricing
+                      {effectiveProduct.name.toLowerCase().includes('balsam') ? "8+ Call Now" : "12+' Call for Pricing"}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -277,13 +275,15 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
           )}
 
           <Button
-            onClick={handleAddToCart}
+            onClick={isCallOptionSelected ? (() => { window.location.href = 'tel:+19174433454'; }) : handleAddToCart}
             className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium py-3 transition-all duration-normal shadow-primary"
             size="lg"
-            disabled={(showBaseProductSelector ? !isProductSelected : false) || !selectedVariant || isSubmitting || !isCartInitialized}
-            aria-busy={isSubmitting}
+            disabled={(showBaseProductSelector ? !isProductSelected : false) || (!isCallOptionSelected && (!selectedVariant || isSubmitting || !isCartInitialized))}
+            aria-busy={!isCallOptionSelected && isSubmitting}
           >
-            {isSubmitting ? (
+            {isCallOptionSelected ? (
+              'Call Now'
+            ) : isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Selecting...
