@@ -181,7 +181,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
           );
           const loadedProducts = await Promise.all(productPromises);
           products = loadedProducts.filter(p => p !== null);
-        } else if (currentStepData.isStandStep || currentStepData.isInstallationStep) {
+        } else if (currentStepData.isStandStep || currentStepData.isInstallationStep || currentStepData.isTreeRemovalStep) {
           // Get the selected tree variant and type from the cart
           let selectedVariant = getSelectedTreeVariant();
           let selectedType = getSelectedTreeType();
@@ -308,6 +308,44 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   setStepProducts([]);
                   setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
                 }
+              } else if (currentStepData.isTreeRemovalStep) {
+                const treeRemovalLinks = mapping.treeRemoval; // ProductLink[] | null
+                if (!treeRemovalLinks || treeRemovalLinks.length === 0) {
+                  setStepProducts([]);
+                  setCartValidationError("Tree removal service is not available for this size. You can proceed to the next step.");
+                  return;
+                }
+
+                // Fetch all tree removal products
+                const fetchedProducts: any[] = [];
+                for (const link of treeRemovalLinks) {
+                  if (!link?.url) continue;
+                  const urlParts = link.url.split('/products/');
+                  if (urlParts.length !== 2) continue;
+                  const handle = urlParts[1].split('?')[0];
+                  try {
+                    console.log('Fetching tree removal product by handle:', handle);
+                    const product = await ShopifyProductService.getProductByHandle(handle);
+                    if (product) {
+                      fetchedProducts.push(product);
+                    }
+                  } catch (err) {
+                    console.error('Error fetching tree removal product for handle:', handle, err);
+                  }
+                }
+
+                if (fetchedProducts.length > 0) {
+                  products = fetchedProducts;
+                  setCartValidationError(null);
+                } else {
+                  if (loadRetryRef.current < 2) {
+                    loadRetryRef.current += 1;
+                    setTimeout(() => { loadStepProducts(); }, 300);
+                    return;
+                  }
+                  setStepProducts([]);
+                  setCartValidationError("This add-on is currently unavailable. You can proceed to the next step.");
+                }
               }
             } else {
               // No mapping found - product is not needed for this size
@@ -321,12 +359,16 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
           }
         } else if (currentStepData.collectionId) {
           // Load products from collection for other steps
+          console.log(`Loading products for step ${currentStep}: ${currentStepData.title} with collection: ${currentStepData.collectionId}`);
           products = await ShopifyProductService.getProductsByCollection(currentStepData.collectionId);
+          console.log(`Loaded ${products.length} products from collection`);
         }
 
-        const isPenultimateStep = currentStep === steps.length - 2;
-        setStepProducts(isPenultimateStep ? products : products.slice(0, 4));
-        console.log('Loaded products:', products.length);
+        // Show all products for collection-based steps, otherwise limit to 4
+        const isCollectionStep = currentStepData.collectionId && !currentStepData.isStandStep && !currentStepData.isInstallationStep && !currentStepData.isSpecificProducts;
+        const productsToShow = isCollectionStep ? products : products.slice(0, 4);
+        console.log(`Step ${currentStep} (${currentStepData.title}): showing ${productsToShow.length} of ${products.length} products`);
+        setStepProducts(productsToShow);
       } catch (error) {
         console.error('Error loading step products:', error);
         // On transient errors, keep previous products and retry a few times
@@ -436,8 +478,8 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     console.log('Product:', product.name, 'Variant ID:', variantId);
     console.log('Current step:', currentStep, 'Step name:', currentStepData?.title);
 
-    // Check if we're on the Additional Accessories step (second to last step)
-    const isAccessoriesStep = currentStep === steps.length - 2;
+    // Check if we're on the Additional Accessories step (step 5) or Tree Removal Services step (step 6)
+    const isAccessoriesStep = currentStep === 5 || currentStep === 6;
     
     if (isAccessoriesStep) {
       // For accessories step: don't auto-advance, allow multiple selections
@@ -622,18 +664,10 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   }`}>
                     {stepName}
                   </span>
-                  {index < steps.length - 1 && (
-                    <div className={`absolute top-4 left-[calc(100%+8px)] w-[calc(100%-24px)] h-[2px] -ml-2
-                      transform transition-all duration-500 ${
-                        isCompleted ? 'bg-primary' : 'bg-gray-200'
-                      }`} 
-                    />
-                  )}
                 </div>
               );
             })}
           </div>
-
           {/* Mobile: Show horizontal slider with arrows */}
           <div className="md:hidden mt-2">
             <div className="relative">
@@ -1071,11 +1105,9 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     </div>
                   )}
 
-                  {currentStep === steps.length - 2 && (
-                    // New Step: Additional Accessories from specified collection
+                  {currentStep === 5 && (
+                    // Step 6: Additional Accessories from specified collection
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Additional Accessories</h3>
-
                       {loadingProducts ? (
                         <div className="text-center py-8">
                           <div className="text-lg text-gray-600">Loading accessories...</div>
@@ -1099,6 +1131,40 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                       ) : (
                         <div className="text-center py-8">
                           <p className="text-gray-600">No accessories available at the moment.</p>
+                          <p className="text-sm text-gray-500 mt-2">Please check back later or contact us for assistance.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {currentStep === 6 && (
+                    // Step 7: Tree Removal Services from specified collection
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Tree Removal Services</h3>
+
+                      {loadingProducts ? (
+                        <div className="text-center py-8">
+                          <div className="text-lg text-gray-600">Loading tree removal services...</div>
+                        </div>
+                      ) : stepProducts.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                          {stepProducts.map((product) => (
+                            <div key={product.id} className="w-full h-full flex">
+                              <ProductCard
+                                product={product}
+                                onAddToCart={handleProductAddToCart}
+                                availableProducts={stepProducts}
+                                showBaseProductSelector={false}
+                                isCartInitialized={isInitialized}
+                                cartData={shopifyCart}
+                                showQuantityCounter={true}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-gray-600">No tree removal services available at the moment.</p>
                           <p className="text-sm text-gray-500 mt-2">Please check back later or contact us for assistance.</p>
                         </div>
                       )}
@@ -1131,7 +1197,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                   </>
                 ) : (
                   <>
-                    {isCartSummaryStep ? 'Proceed to Checkout' : (currentStep === 3 || currentStep === 4 ? 'Continue' : (currentStep === steps.length - 2 ? 'Continue' : 'Skip'))}
+                    {isCartSummaryStep ? 'Proceed to Checkout' : (currentStep === 3 || currentStep === 4 ? 'Continue' : (currentStep === 5 || currentStep === 6 ? 'Continue' : 'Skip'))}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

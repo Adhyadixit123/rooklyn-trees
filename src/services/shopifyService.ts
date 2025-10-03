@@ -112,9 +112,58 @@ export class ShopifyProductService {
 
   static async getProductsByCollection(collectionId?: string): Promise<Product[]> {
     try {
-      const query = `
-        query GetProductsByCollection($first: Int!, $collectionId: ID) {
-          collection(id: $collectionId) {
+      let query = '';
+      let variables: any = { first: 50 }; // Increased limit for collection products
+
+      if (collectionId) {
+        query = `
+          query GetProductsByCollection($first: Int!, $collectionId: ID!) {
+            collection(id: $collectionId) {
+              id
+              title
+              products(first: $first) {
+                edges {
+                  node {
+                    id
+                    title
+                    description
+                    images(first: 1) {
+                      edges {
+                        node {
+                          url
+                          altText
+                        }
+                      }
+                    }
+                    variants(first: 10) {
+                      edges {
+                        node {
+                          id
+                          title
+                          price {
+                            amount
+                            currencyCode
+                          }
+                          availableForSale
+                        }
+                      }
+                    }
+                    priceRange {
+                      minVariantPrice {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+        variables.collectionId = collectionId;
+      } else {
+        query = `
+          query GetAllProducts($first: Int!) {
             products(first: $first) {
               edges {
                 node {
@@ -152,62 +201,31 @@ export class ShopifyProductService {
               }
             }
           }
-          products(first: $first) {
-            edges {
-              node {
-                id
-                title
-                description
-                images(first: 1) {
-                  edges {
-                    node {
-                      url
-                      altText
-                    }
-                  }
-                }
-                variants(first: 10) {
-                  edges {
-                    node {
-                      id
-                      title
-                      price {
-                        amount
-                        currencyCode
-                      }
-                      availableForSale
-                    }
-                  }
-                }
-                priceRange {
-                  minVariantPrice {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }
-      `;
-
-      const variables: any = { first: 20 };
-      if (collectionId) {
-        variables.collectionId = collectionId;
+        `;
       }
 
+      console.log('Fetching products with query:', query);
+      console.log('Variables:', variables);
+
       const response = await shopifyClient.request(query, { variables });
+
+      console.log('Collection response:', response.data);
 
       let products = [];
       if (collectionId && response.data?.collection?.products?.edges) {
         products = response.data.collection.products.edges;
+        console.log(`Found ${products.length} products in collection`);
       } else if (response.data?.products?.edges) {
         products = response.data.products.edges;
+        console.log(`Found ${products.length} total products`);
       }
 
-      return products.map((edge: any) =>
+      const transformedProducts = products.map((edge: any) =>
         this.transformShopifyProduct(edge.node)
       );
+
+      console.log(`Transformed ${transformedProducts.length} products`);
+      return transformedProducts;
     } catch (error) {
       console.error('Error fetching products by collection:', error);
       return [];

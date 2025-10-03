@@ -13,6 +13,7 @@ export interface TreeSizeMapping {
     price: number | null; // null for "Call for pricing"
     treeStand: ProductLink[] | null; // null when no stand available; supports multiple products
     installation: ProductLink[] | null; // null when no installation available; supports multiple products
+    treeRemoval: ProductLink[] | null; // null when no tree removal available; supports multiple products
 }
 
 export interface TreeSizeMappingRecord {
@@ -21,6 +22,7 @@ export interface TreeSizeMappingRecord {
             price: number | null;
             treeStand: ProductLink[] | null;
             installation: ProductLink[] | null;
+            treeRemoval: ProductLink[] | null;
         }
     }
 }

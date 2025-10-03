@@ -110,7 +110,7 @@ const Index = () => {
             addOns: [],
             collectionId: null
           },
-          // New Step: Collection products before order summary
+          // Additional Accessories collection
           {
             id: 6,
             title: 'Additional Accessories',
@@ -118,8 +118,17 @@ const Index = () => {
             addOns: [],
             collectionId: 'gid://shopify/Collection/168930279504'
           },
+          // Tree Removal Services
           {
             id: 7,
+            title: 'Tree Removal Services',
+            description: 'Schedule professional tree removal services',
+            addOns: [],
+            isTreeRemovalStep: true,
+            collectionId: null
+          },
+          {
+            id: 8,
             title: 'Order Summary',
             description: 'Review your selections before proceeding to checkout',
             addOns: [],

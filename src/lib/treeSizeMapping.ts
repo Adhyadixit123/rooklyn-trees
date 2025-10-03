@@ -5,7 +5,8 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
     '3\'': {
       price: 89.99,
       treeStand: null,
-      installation: null
+      installation: null,
+      treeRemoval: null
     },
     '4\'': {
       price: 109.99,
@@ -26,6 +27,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -51,6 +62,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '6\'': {
@@ -72,6 +93,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -97,6 +128,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '8\'': {
@@ -118,6 +159,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-8-10-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -143,6 +194,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-8-10-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '10\'': {
@@ -164,6 +225,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-10-12-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -189,6 +260,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-10-12-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '12\'': {
@@ -210,6 +291,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-10-12-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -237,6 +328,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '5\'': {
@@ -258,6 +359,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -286,6 +397,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '7\'': {
@@ -307,6 +428,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         },
         {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-5-7-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
           price: null
         }
       ]
@@ -332,12 +463,23 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
           price: null
         }
+      ],
+      treeRemoval: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-removal-services-8-10-ft',
+          price: null
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/no-tree-removal-services-required',
+          price: null
+        }
       ]
     },
     '9+': {
       price: null, // Call for pricing
       treeStand: null,
-      installation: null
+      installation: null,
+      treeRemoval: null
     }
   }
 };
