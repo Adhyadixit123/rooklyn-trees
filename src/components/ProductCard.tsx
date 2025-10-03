@@ -255,18 +255,37 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {effectiveProduct.variants.map((variant) => (
-                      <SelectItem key={variant.id} value={variant.id}>
-                        {variant.value}
-                      </SelectItem>
-                    ))}
+                    {effectiveProduct.variants.map((variant) => {
+                      // Calculate the final price for this variant
+                      const variantPrice = (effectiveProduct.basePrice || 0) + (variant.priceModifier || 0);
+                      const variantLabel = variant.value;
+                      
+                      // Format the price nicely
+                      const formattedPrice = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(variantPrice);
+                      
+                      return (
+                        <SelectItem key={variant.id} value={variant.id}>
+                          <div className="flex justify-between w-full">
+                            <span>{variantLabel}</span>
+                            <span className="ml-4 text-muted-foreground">{formattedPrice}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                     {/* Add Call for Pricing option with dynamic size based on product */}
                     <SelectItem 
                       value="call-for-pricing" 
                       className="font-medium text-primary hover:bg-primary/10"
-                      /* Selecting this option will set value via Select onValueChange */
                     >
-                      {effectiveProduct.name.toLowerCase().includes('balsam') ? "8+ Call Now" : "12+' Call for Pricing"}
+                      <div className="flex justify-between w-full">
+                        <span>{effectiveProduct.name.toLowerCase().includes('balsam') ? '9+' : "12+'"}</span>
+                        <span className="ml-4 text-muted-foreground">Call for pricing</span>
+                      </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>

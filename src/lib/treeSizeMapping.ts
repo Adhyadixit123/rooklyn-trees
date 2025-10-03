@@ -216,6 +216,29 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
     }
   },
   'Balsam Fir': {
+    '4\'': {
+      price: 139.99,
+      treeStand: [
+        {
+          url: 'https://brooklynchristmastree.com/products/tree-stand-for-up-to-6ft',
+          price: 34.99
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/i-do-not-need-a-stand',
+          price: null
+        }
+      ],
+      installation: [
+        {
+          url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-1',
+          price: 15
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ]
+    },
     '5\'': {
       price: 139.99,
       treeStand: [
@@ -239,6 +262,9 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         }
       ]
     },
+
+    
+    
     '6\'': {
       price: 164.99,
       treeStand: [
@@ -308,7 +334,7 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
         }
       ]
     },
-    'Larger': {
+    '9+': {
       price: null, // Call for pricing
       treeStand: null,
       installation: null
