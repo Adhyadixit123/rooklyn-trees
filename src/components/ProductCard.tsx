@@ -259,7 +259,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                         {variant.value}
                       </SelectItem>
                     ))}
-                    {/* Add 12' Call for Pricing option */}
+                    {/* Add Call for Pricing option with dynamic size based on product */}
                     <SelectItem 
                       value="call-for-pricing" 
                       className="font-medium text-primary hover:bg-primary/10"
@@ -268,7 +268,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                         window.location.href = 'https://brooklynchristmastree.com/pages/contact-us';
                       }}
                     >
-                      12' Call for Pricing
+                      {effectiveProduct.name.toLowerCase().includes('balsam') ? "8'" : "12+'"} Call for Pricing
                     </SelectItem>
                   </SelectContent>
                 </Select>

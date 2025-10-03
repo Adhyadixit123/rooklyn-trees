@@ -203,7 +203,16 @@ export const treeSizeMappings: TreeSizeMappingRecord = {
           price: null
         }
       ],
-      installation: null
+      installation: [
+        {
+          url: 'https://brooklynchristmastree.com/products/11-12-tree-installation',
+          price: 250
+        },
+        {
+          url: 'https://brooklynchristmastree.com/products/4-5-tree-installation-copy?_pos=2&_sid=8cf8973c6&_ss=r',
+          price: null
+        }
+      ]
     }
   },
   'Balsam Fir': {
