@@ -52,6 +52,7 @@ export interface CheckoutStep {
   isSpecificProducts?: boolean;
   isStandStep?: boolean;
   isInstallationStep?: boolean;
+  isTreeRemovalStep?: boolean;
 }
 
 export interface OrderSummary {

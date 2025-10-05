@@ -7,6 +7,17 @@ import { Star, ShoppingCart, Loader2 } from 'lucide-react';
 import { Product } from '@/types/checkout';
 import { ShopifyCartService } from '@/services/shopifyService';
 
+// Function to generate random reviews count for each card
+const generateRandomReviews = () => {
+  const baseReviews = 1500; // Minimum reviews
+  const maxVariation = 2500; // Maximum additional reviews
+  const randomVariation = Math.floor(Math.random() * maxVariation);
+  const totalReviews = baseReviews + randomVariation;
+
+  // Format with commas
+  return totalReviews.toLocaleString();
+};
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product, variantId: string) => void;
@@ -139,7 +150,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             {[...Array(5)].map((_, i) => (
               <Star key={i} className="w-4 h-4 fill-warning text-warning" />
             ))}
-            <span className="text-sm text-muted-foreground">(2,847 reviews)</span>
+            <span className="text-sm text-muted-foreground">({generateRandomReviews()} reviews)</span>
           </div>
 
           <div>
@@ -260,12 +271,12 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
                       const variantPrice = (effectiveProduct.basePrice || 0) + (variant.priceModifier || 0);
                       const variantLabel = variant.value;
                       
-                      // Format the price nicely
+                      // Format the price to show exact amount with 2 decimal places
                       const formattedPrice = new Intl.NumberFormat('en-US', {
                         style: 'currency',
                         currency: 'USD',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
                       }).format(variantPrice);
                       
                       return (

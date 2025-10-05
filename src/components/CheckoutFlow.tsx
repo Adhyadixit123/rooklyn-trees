@@ -56,11 +56,14 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [deliveryTime, setDeliveryTime] = useState<string>('');
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
 
+  const [treeRemovalDate, setTreeRemovalDate] = useState<string>('');
+
   const composeCartNote = () => {
     const parts: string[] = [];
     if (deliveryDate) parts.push(`Delivery Date: ${deliveryDate}`);
     if (deliveryTime) parts.push(`Time: ${deliveryTime}`);
     if (deliveryNotes) parts.push(`Notes: ${deliveryNotes}`);
+    if (treeRemovalDate) parts.push(`Tree Removal Date: ${treeRemovalDate}`);
     return parts.join(' | ');
   };
 
@@ -540,9 +543,9 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
       
       // No validation needed here - if products aren't mapped, they're not required
 
-      // Persist order notes when leaving Step 4 (index 3) and Step 5 (index 4)
+      // Persist order notes when leaving Step 4 (index 3), Step 5 (index 4), or Step 6 (index 6 - Tree Removal)
       try {
-        if (currentStep === 3 || currentStep === 4) {
+        if (currentStep === 3 || currentStep === 4 || currentStep === 6) {
           const note = composeCartNote();
           if (note) {
             await setCartNote(note);
@@ -1094,9 +1097,10 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           We offer same-day delivery, but please note the following cut-off rules:
                         </p>
                         <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
-                          <li>Orders must be placed before 11:30 AM to qualify for the 8 AM – 2 PM delivery slot.</li>
-                          <li>Orders placed after 11:30 AM but before 2:00 PM qualify only for the 2 PM – 8 PM delivery slot.</li>
-                          <li>After 2:00 PM, same-day delivery is no longer available. Orders placed after this time will be scheduled for delivery the next day.</li>
+                          <li>Orders must be placed before 1pm to qualify for same day delivery and will be eligible for the 2–8pm time frame.
+                          </li>
+                          <li>Orders placed after 1pm for Same-day delivery will automatically be scheduled for the following day.</li>
+                          
                         </ul>
                         <p className="text-sm mt-2">
                           Thank you for understanding — this helps us ensure timely deliveries for everyone.
@@ -1142,26 +1146,77 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Tree Removal Services</h3>
 
+                      {/* Date Selection for Tree Removal Services */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium" htmlFor="tree-removal-date">Preferred Tree Removal Date</label>
+                        <input
+                          id="tree-removal-date"
+                          type="date"
+                          className="w-full mt-1 p-3 border rounded-md"
+                          value={treeRemovalDate}
+                          min="2026-01-01" // Set minimum date to January 1, 2026
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            const selectedDate = new Date(e.currentTarget.value);
+                            const minDate = new Date('2026-01-01');
+
+                            if (selectedDate < minDate) {
+                              setCartValidationError('Please select a date on or after January 1, 2026');
+                              return;
+                            }
+
+                            setCartValidationError(null);
+                            setTreeRemovalDate(e.currentTarget.value);
+                          }}
+                          onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
+                            // Ensure the min date is properly enforced for mobile browsers
+                            const minDate = new Date('2026-01-01');
+                            e.currentTarget.min = minDate.toISOString().split('T')[0];
+                          }}
+                          onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                            // For mobile browsers that don't respect min attribute in date picker
+                            const minDate = new Date('2026-01-01');
+                            const selectedDate = e.currentTarget.value ? new Date(e.currentTarget.value) : null;
+
+                            // If no date selected or selected date is before min, set to min date
+                            if (!selectedDate || selectedDate < minDate) {
+                              e.currentTarget.value = minDate.toISOString().split('T')[0];
+                              setTreeRemovalDate(minDate.toISOString().split('T')[0]);
+                              setCartValidationError(null);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Select your preferred tree removal date (available from January 1, 2026)
+                        </p>
+                      </div>
+
                       {loadingProducts ? (
                         <div className="text-center py-8">
                           <div className="text-lg text-gray-600">Loading tree removal services...</div>
                         </div>
                       ) : stepProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                          {stepProducts.map((product) => (
-                            <div key={product.id} className="w-full h-full flex">
-                              <ProductCard
-                                product={product}
-                                onAddToCart={handleProductAddToCart}
-                                availableProducts={stepProducts}
-                                showBaseProductSelector={false}
-                                isCartInitialized={isInitialized}
-                                cartData={shopifyCart}
-                                showQuantityCounter={true}
-                              />
+                        (() => {
+                          // Show all tree removal products (don't filter out any)
+                          const treeRemovalProducts = stepProducts;
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                              {treeRemovalProducts.map((product) => (
+                                <div key={product.id} className="w-full h-full flex">
+                                  <ProductCard
+                                    product={product}
+                                    onAddToCart={handleProductAddToCart}
+                                    availableProducts={treeRemovalProducts}
+                                    showBaseProductSelector={false}
+                                    isCartInitialized={isInitialized}
+                                    cartData={shopifyCart}
+                                    showQuantityCounter={true}
+                                  />
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()
                       ) : (
                         <div className="text-center py-8">
                           <p className="text-gray-600">No tree removal services available at the moment.</p>

@@ -408,14 +408,23 @@ export function useCart() {
   const getOrderSummary = useCallback(() => {
     if (!shopifyCart) return null;
 
-    const items = shopifyCart.lines?.edges?.map((edge: any) => ({
-      id: edge.node.id,
-      name: `${edge.node.merchandise.product.title} - ${edge.node.merchandise.title}`,
-      price: parseFloat(edge.node.merchandise.price.amount) * edge.node.quantity,
-      quantity: edge.node.quantity,
-      lineId: edge.node.id,
-      variantId: edge.node.merchandise.id
-    })) || [];
+    const items = shopifyCart.lines?.edges?.map((edge: any) => {
+      const productTitle = edge.node.merchandise.product.title;
+      const variantTitle = edge.node.merchandise.title;
+
+      // Remove "Default Title" from variant title if present
+      const cleanVariantTitle = variantTitle === 'Default Title' ? '' : variantTitle;
+      const name = cleanVariantTitle ? `${productTitle} - ${cleanVariantTitle}` : productTitle;
+
+      return {
+        id: edge.node.id,
+        name,
+        price: parseFloat(edge.node.merchandise.price.amount) * edge.node.quantity,
+        quantity: edge.node.quantity,
+        lineId: edge.node.id,
+        variantId: edge.node.merchandise.id
+      };
+    }) || [];
 
     const subtotal = parseFloat(shopifyCart.cost?.subtotalAmount?.amount || '0');
     const tax = parseFloat(shopifyCart.cost?.totalTaxAmount?.amount || '0');
