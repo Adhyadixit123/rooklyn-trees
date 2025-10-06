@@ -282,6 +282,7 @@ export class ShopifyProductService {
     return {
       id: shopifyProduct.id,
       name: shopifyProduct.title,
+      title: shopifyProduct.title,
       description: shopifyProduct.description,
       basePrice,
       image: imageUrl,
@@ -622,6 +623,10 @@ export class ShopifyCartService {
         query GetCart($id: ID!) {
           cart(id: $id) {
             id
+            attributes {
+              key
+              value
+            }
             checkoutUrl
             lines(first: 10) {
               edges {
@@ -683,29 +688,55 @@ export class ShopifyCartService {
 
   static async updateCartNote(cartId: string, note: string): Promise<boolean> {
     try {
+      console.log('🔄 Attempting to update cart attributes with note:', { cartId, note });
+      
+      // Use cart attributes instead of cart note since cartNoteUpdate is not available in Storefront API
       const query = `
-        mutation UpdateCartNote($cartId: ID!, $note: String) {
-          cartNoteUpdate(cartId: $cartId, note: $note) {
-            cart { id }
+        mutation CartAttributesUpdate($cartId: ID!, $attributes: [AttributeInput!]!) {
+          cartAttributesUpdate(cartId: $cartId, attributes: $attributes) {
+            cart { 
+              id 
+              attributes {
+                key
+                value
+              }
+            }
             userErrors { code message field }
           }
         }
       `;
 
-      const variables = { cartId, note };
+      const variables = { 
+        cartId, 
+        attributes: [
+          {
+            key: "order_comments",
+            value: note
+          }
+        ]
+      };
+      console.log('📤 Sending cartAttributesUpdate mutation with variables:', variables);
+      
       const response = await shopifyClient.request(query, { variables });
+      console.log('📥 cartAttributesUpdate response:', JSON.stringify(response, null, 2));
 
-      if (response.data?.cartNoteUpdate?.cart?.id) {
+      if (response.data?.cartAttributesUpdate?.cart?.id) {
+        console.log('✅ Cart attributes updated successfully. New attributes:', response.data.cartAttributesUpdate.cart.attributes);
         return true;
       }
 
-      const userErrors = response.data?.cartNoteUpdate?.userErrors;
+      const userErrors = response.data?.cartAttributesUpdate?.userErrors;
       if (userErrors && userErrors.length > 0) {
-        console.error('Update cart note user errors:', userErrors);
+        console.error('❌ Update cart attributes user errors:', userErrors);
+        userErrors.forEach((error: any) => {
+          console.error(`  - ${error.code}: ${error.message} (field: ${error.field})`);
+        });
+      } else {
+        console.error('❌ Cart attributes update failed but no specific errors returned');
       }
       return false;
     } catch (error) {
-      console.error('Error updating cart note:', error);
+      console.error('❌ Error updating cart attributes:', error);
       return false;
     }
   }

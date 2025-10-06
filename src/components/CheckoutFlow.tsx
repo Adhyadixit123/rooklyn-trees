@@ -30,6 +30,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   // Refs for mobile slider auto-scroll
   const sliderRef = useRef<HTMLDivElement>(null);
   const currentStepRef = useRef<HTMLDivElement>(null);
+  const noteDebounceRef = useRef<number | null>(null);
 
   const currentStepData = steps[currentStep];
   const [progress, setProgress] = useState(0);
@@ -66,6 +67,63 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
     if (treeRemovalDate) parts.push(`Tree Removal Date: ${treeRemovalDate}`);
     return parts.join(' | ');
   };
+
+  // Auto-save order comments (cart note) when user edits delivery/removal fields
+  useEffect(() => {
+    // Only auto-save on steps 4, 5, and 7 (1-based indexing) => indices 3, 4, 6
+    const isNoteStep = currentStep === 3 || currentStep === 4 || currentStep === 6;
+    console.log('🔄 Auto-save useEffect triggered:', { currentStep, isNoteStep, hasCart: !!shopifyCart?.id });
+    
+    if (!isNoteStep || !shopifyCart?.id) return;
+
+    const note = composeCartNote();
+    console.log('📝 Composed note for auto-save:', note);
+    
+    if (!note) return; // Avoid spamming API if nothing entered
+
+    // Debounce updates to reduce API calls while typing
+    if (noteDebounceRef.current) {
+      window.clearTimeout(noteDebounceRef.current);
+    }
+    noteDebounceRef.current = window.setTimeout(async () => {
+      console.log('⏰ Debounce timer fired, saving note:', note);
+      try {
+        const success = await setCartNote(note);
+        console.log('💾 Auto-save result:', success);
+      } catch (e) {
+        console.warn('❌ Non-blocking: failed to auto-save cart note', e);
+      }
+    }, 600);
+
+    return () => {
+      if (noteDebounceRef.current) {
+        window.clearTimeout(noteDebounceRef.current);
+      }
+    };
+  }, [deliveryDate, deliveryTime, deliveryNotes, treeRemovalDate, currentStep, shopifyCart?.id, setCartNote]);
+
+  // Also persist note when entering the final summary step, in case user navigated via slider
+  useEffect(() => {
+    const isFinal = currentStep === steps.length - 1;
+    console.log('🏁 Final step useEffect triggered:', { currentStep, isFinal, hasCart: !!shopifyCart?.id });
+    
+    if (!isFinal || !shopifyCart?.id) return;
+    const note = composeCartNote();
+    console.log('📝 Final step note to save:', note);
+    
+    if (!note) return;
+    (async () => {
+      try {
+        console.log('💾 Saving note on final step entry...');
+        const success = await setCartNote(note);
+        console.log('🏁 Final step save result:', success);
+      } catch (e) {
+        console.error('❌ Failed to save note on final step:', e);
+      }
+    })();
+    // No dependencies on note to avoid multiple calls when sidebar rerenders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, steps.length, shopifyCart?.id, setCartNote]);
 
   // Delivery time window logic based on New York time and selected date
   const getNYNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -1028,6 +1086,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                             setCartValidationError(null);
                             setDeliveryDate(e.currentTarget.value);
                           }}
+                          onBlur={async () => {
+                            console.log('📅 Delivery date field blurred');
+                            const note = composeCartNote();
+                            console.log('📝 Note to save on delivery date blur:', note);
+                            if (note) {
+                              try { 
+                                console.log('💾 Saving note on delivery date blur...');
+                                const success = await setCartNote(note);
+                                console.log('✅ Delivery date blur save result:', success);
+                              } catch (e) {
+                                console.error('❌ Failed to save on delivery date blur:', e);
+                              }
+                            }
+                          }}
                           onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
                             // Ensure the min date is properly enforced for mobile browsers
                             const minDate = new Date('2025-11-22');
@@ -1060,7 +1132,21 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium">Preferred Time Window</label>
-                          <Select value={deliveryTime} onValueChange={(v) => setDeliveryTime(v)} disabled={isTimeSelectDisabled}>
+                          <Select value={deliveryTime} onValueChange={async (v) => {
+                            console.log('⏰ Delivery time selected:', v);
+                            setDeliveryTime(v);
+                            const note = composeCartNote();
+                            console.log('📝 Note to save on time selection:', note);
+                            if (note) {
+                              try { 
+                                console.log('💾 Saving note on time selection...');
+                                const success = await setCartNote(note);
+                                console.log('✅ Time selection save result:', success);
+                              } catch (e) {
+                                console.error('❌ Failed to save on time selection:', e);
+                              }
+                            }
+                          }} disabled={isTimeSelectDisabled}>
                             <SelectTrigger className="w-full mt-1">
                               <SelectValue placeholder={deliveryDate ? (after2pmSameDay ? 'Same-day unavailable — choose next day' : 'Select time preference') : 'Select delivery date first'} />
                             </SelectTrigger>
@@ -1086,6 +1172,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                             placeholder="Enter any special delivery instructions..."
                             value={deliveryNotes}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeliveryNotes(e.currentTarget.value)}
+                            onBlur={async () => {
+                              console.log('📝 Delivery notes textarea blurred');
+                              const note = composeCartNote();
+                              console.log('📝 Note to save on notes blur:', note);
+                              if (note) {
+                                try { 
+                                  console.log('💾 Saving note on delivery notes blur...');
+                                  const success = await setCartNote(note);
+                                  console.log('✅ Delivery notes blur save result:', success);
+                                } catch (e) {
+                                  console.error('❌ Failed to save on delivery notes blur:', e);
+                                }
+                              }
+                            }}
                           />
                         </div>
                       </div>
@@ -1166,6 +1266,20 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
 
                             setCartValidationError(null);
                             setTreeRemovalDate(e.currentTarget.value);
+                          }}
+                          onBlur={async () => {
+                            console.log('🌲 Tree removal date field blurred');
+                            const note = composeCartNote();
+                            console.log('📝 Note to save on tree removal blur:', note);
+                            if (note) {
+                              try { 
+                                console.log('💾 Saving note on tree removal date blur...');
+                                const success = await setCartNote(note);
+                                console.log('✅ Tree removal date blur save result:', success);
+                              } catch (e) {
+                                console.error('❌ Failed to save on tree removal date blur:', e);
+                              }
+                            }
                           }}
                           onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
                             // Ensure the min date is properly enforced for mobile browsers
@@ -1335,6 +1449,21 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         <div className="flex justify-between font-bold text-lg">
                           <span>Total</span>
                           <span>${orderSummary.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <Separator className="my-3" />
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">Order Comments</h4>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Saved in Shopify:</span>
+                          <div className="mt-1 whitespace-pre-line">
+                            {(() => {
+                              const orderCommentsAttr = shopifyCart?.attributes?.find((attr: any) => attr.key === 'order_comments');
+                              const savedNote = orderCommentsAttr?.value;
+                              return savedNote && savedNote.trim().length > 0 ? savedNote : '— none —';
+                            })()}
+                          </div>
                         </div>
                       </div>
 

@@ -1,7 +1,7 @@
 export interface Product {
-  title(arg0: string, title: any): unknown;
   id: string;
   name: string;
+  title: string;
   description: string;
   basePrice: number;
   image: string;

@@ -340,7 +340,10 @@ export function useCart() {
   }, [cartId, loadCart, saveCartData]);
 
   const setCartNote = useCallback(async (note: string): Promise<boolean> => {
+    console.log('🎯 useCart.setCartNote called with:', { cartId, note });
+    
     if (!cartId) {
+      console.error('❌ No cart available for setCartNote');
       setError('No cart available');
       return false;
     }
@@ -349,17 +352,23 @@ export function useCart() {
     setError(null);
 
     try {
+      console.log('🔄 Calling ShopifyCartService.updateCartNote...');
       const success = await ShopifyCartService.updateCartNote(cartId, note);
+      console.log('📋 updateCartNote result:', success);
+      
       if (success) {
+        console.log('✅ Cart note update successful, reloading cart...');
         // Small delay to allow Shopify to persist note
         await new Promise((r) => setTimeout(r, 300));
         await loadCart(cartId);
+        console.log('🔄 Cart reloaded after note update');
         return true;
       }
+      console.error('❌ Cart note update failed');
       setError('Failed to update order notes');
       return false;
     } catch (e: any) {
-      console.error('Error updating cart note:', e);
+      console.error('❌ Error in setCartNote:', e);
       setError(e.message || 'Error updating order notes');
       return false;
     } finally {
