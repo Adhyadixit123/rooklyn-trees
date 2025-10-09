@@ -186,13 +186,13 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             <img
               src={"/WhatsApp Image 2025-09-25 at 15.54.25_8ce0d4fb.jpg"}
               alt="Selected Tree"
-              className="max-h-[400px] object-contain"
+              className="max-h-[200px] object-contain mx-auto"
             />
           ) : (
             <img
               src={"/WhatsApp Image 2025-09-25 at 15.54.25_8ce0d4fb.jpg"}
               alt="Choose Your Tree"
-              className="max-h-[400px] object-contain"
+              className="max-h-[200px] object-contain mx-auto"
             />
           )
         ) : (
@@ -239,7 +239,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
               )}
               <label className="text-sm font-medium text-foreground">Select Tree Type</label>
               <Select value={selectedBaseProductId || 'none'} onValueChange={handleBaseProductChange}>
-                <SelectTrigger className="w-full mt-1">
+                <SelectTrigger className="w-full mt-1 h-8">
                   <SelectValue placeholder="Select a tree type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -262,7 +262,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
               <div key={`variant-selector-${selectedBaseProductId}`}>
                 <label className="text-sm font-medium text-foreground">Select Size</label>
                 <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                  <SelectTrigger className="w-full mt-1">
+                  <SelectTrigger className="w-full mt-1 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -306,8 +306,8 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
 
           <Button
             onClick={isCallOptionSelected ? (() => { window.location.href = 'tel:+19174433454'; }) : handleAddToCart}
-            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium py-3 transition-all duration-normal shadow-primary"
-            size="lg"
+            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium py-2 transition-all duration-normal shadow-primary"
+            size="default"
             disabled={(showBaseProductSelector ? !isProductSelected : false) || (!isCallOptionSelected && (!selectedVariant || isSubmitting || !isCartInitialized))}
             aria-busy={!isCallOptionSelected && isSubmitting}
           >
