@@ -128,5 +128,15 @@ document.addEventListener('DOMContentLoaded', function() {
         style="width: 100%; height: 600px; border: 1px solid #ccc;"
         frameborder="0">
     </iframe>
+<script>
+  function sendHeight() {
+    const height = document.documentElement.scrollHeight || document.body.scrollHeight;
+    parent.postMessage({ type: "setHeight", height }, "*");
+  }
+
+  window.addEventListener("load", sendHeight);
+  window.addEventListener("resize", sendHeight);
+  setInterval(sendHeight, 1000); // keep updating height every second in case content changes
+</script>
 </body>
 </html>
