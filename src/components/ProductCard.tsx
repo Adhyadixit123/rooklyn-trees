@@ -178,7 +178,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
   }
 
   return (
-    <Card className={`overflow-hidden shadow-lg border-0 bg-card ${showBaseProductSelector ? 'w-fit mx-auto' : 'w-full h-full'}`}>
+    <Card className={`overflow-hidden shadow-lg border-0 bg-card ${showBaseProductSelector ? 'w-fit mx-auto' : 'w-full max-w-xs mx-auto'}`}>
       <div className="relative">
         {showBaseProductSelector ? (
           // Base product card behavior
@@ -196,36 +196,36 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
             />
           )
         ) : (
-          // Add-on product cards keep existing behavior
+          // Add-on product cards keep existing behavior (reduced size)
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-80 object-cover"
+            className="w-full h-40 object-cover"
           />
         )}
       </div>
 
-      <CardContent className="px-2 py-2 space-y-3">
+      <CardContent className={`px-2 py-2 space-y-3`}>
         <div className="flex items-center justify-center gap-2">
           {[...Array(5)].map((_, i) => (
-            <Star key={i} className="w-4 h-4 fill-warning text-warning" />
+            <Star key={i} className={`${showBaseProductSelector ? 'w-4 h-4' : 'w-3 h-3'} fill-warning text-warning`} />
           ))}
-          <span className="text-sm text-muted-foreground">(2,847 reviews)</span>
+          <span className={`${showBaseProductSelector ? 'text-sm' : 'text-xs'} text-muted-foreground`}>(${showBaseProductSelector ? '2,847' : '1,847'} reviews)</span>
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold text-foreground mb-1">
+          <h2 className={`${showBaseProductSelector ? 'text-2xl' : 'text-xl'} font-bold text-foreground mb-1`}>
             {showBaseProductSelector && !isProductSelected ? "Choose Your Tree" : product.name}
           </h2>
           {(!showBaseProductSelector || isProductSelected) && (
-            <p className="text-lg font-semibold text-primary mb-2">
+            <p className={`${showBaseProductSelector ? 'text-lg' : 'text-base'} font-semibold text-primary mb-2`}>
               ${finalPrice.toFixed(2)}
             </p>
           )}
           {/* Product description hidden as requested */}
         </div>
 
-        <div className="space-y-3">
+        <div className={`${showBaseProductSelector ? 'space-y-3' : 'space-y-2'}`}>
           {/* Base Product Selection Dropdown - Only show if multiple products are available and showBaseProductSelector is true */}
           {showBaseProductSelector && availableProducts.length > 1 && (
             <div key={`base-selector-${selectedBaseProductId || 'none'}`}>
@@ -260,7 +260,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
           {hasMultipleVariants && (
             (showBaseProductSelector ? isProductSelected : true) && (
               <div key={`variant-selector-${selectedBaseProductId}`}>
-                <label className="text-sm font-medium text-foreground">Select Size</label>
+                <label className={`${showBaseProductSelector ? 'text-sm' : 'text-xs'} font-medium text-foreground`}>Select Size</label>
                 <Select value={selectedVariant} onValueChange={setSelectedVariant}>
                   <SelectTrigger className="w-full mt-1 h-8">
                     <SelectValue />
@@ -306,7 +306,7 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
 
           <Button
             onClick={isCallOptionSelected ? (() => { window.location.href = 'tel:+19174433454'; }) : handleAddToCart}
-            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium py-2 transition-all duration-normal shadow-primary"
+            className={`w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium transition-all duration-normal shadow-primary ${showBaseProductSelector ? 'py-2' : 'py-1.5'}`}
             size="default"
             disabled={(showBaseProductSelector ? !isProductSelected : false) || (!isCallOptionSelected && (!selectedVariant || isSubmitting || !isCartInitialized))}
             aria-busy={!isCallOptionSelected && isSubmitting}
@@ -315,17 +315,17 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
               'Call Now'
             ) : isSubmitting ? (
               <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <Loader2 className={`${showBaseProductSelector ? 'w-5 h-5' : 'w-4 h-4'} mr-2 animate-spin`} />
                 Selecting...
               </>
             ) : !isCartInitialized ? (
               <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <Loader2 className={`${showBaseProductSelector ? 'w-5 h-5' : 'w-4 h-4'} mr-2 animate-spin`} />
                 Initializing...
               </>
             ) : (
               <>
-                <ShoppingCart className="w-5 h-5 mr-2" />
+                <ShoppingCart className={`${showBaseProductSelector ? 'w-5 h-5' : 'w-4 h-4'} mr-2`} />
                 {showQuantityCounter && getProductQuantityInCart() > 0 ? (
                   <>
                     Add More ({getProductQuantityInCart()} in cart)
@@ -338,18 +338,20 @@ export function ProductCard({ product, onAddToCart, availableProducts = [], show
           </Button>
         </div>
 
-        <div className="pt-4 border-t border-border">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-muted-foreground">Free Shipping on Selected Items</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-muted-foreground">Same day delivery</span>
+        {showBaseProductSelector && (
+          <div className="pt-4 border-t border-border">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-success rounded-full"></div>
+                <span className="text-sm text-muted-foreground">Free Shipping on Selected Items</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-success rounded-full"></div>
+                <span className="text-sm text-muted-foreground">Same day delivery</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
