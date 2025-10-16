@@ -58,6 +58,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
 
   const [treeRemovalDate, setTreeRemovalDate] = useState<string>('');
+  const isMobileUA = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
 
   const composeCartNote = () => {
     const parts: string[] = [];
@@ -995,7 +996,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           <div className="text-lg text-gray-600">Loading installation options...</div>
                         </div>
                       ) : stepProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-2">
+                        <div className={`${isMobileUA ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3 md:gap-2'}`}>
                           {stepProducts.map((product) => (
                             <div key={product.id} className="w-full h-full flex">
                               <ProductCard
@@ -1026,7 +1027,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           <div className="text-lg text-gray-600">Loading insurance certificate options...</div>
                         </div>
                       ) : stepProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-2">
+                        <div className={`${isMobileUA ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3 md:gap-2'}`}>
                           {stepProducts.map((product) => (
                             <div key={product.id} className="w-full h-full flex">
                               <ProductCard
@@ -1217,7 +1218,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           <div className="text-lg text-gray-600">Loading accessories...</div>
                         </div>
                       ) : stepProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-2 h-full">
+                        <div className={`${isMobileUA ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3 md:gap-2'} h-full`}>
                           {stepProducts.map((product) => (
                             <div key={product.id} className="w-full h-full flex">
                               <ProductCard
