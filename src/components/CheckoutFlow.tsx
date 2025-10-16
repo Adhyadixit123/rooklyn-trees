@@ -961,7 +961,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           }
 
                           return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-2 h-full">
+                            <div className={`${isMobileUA ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3 md:gap-2'} h-full`}>
                               {filteredProducts.map((product) => (
                                 <div key={product.id} className="w-full h-full flex">
                                   <ProductCard
