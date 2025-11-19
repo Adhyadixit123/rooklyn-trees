@@ -1063,7 +1063,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                         </div>
                         <div>
                           <h4 className="font-medium text-yellow-800">Delivery Information</h4>
-                          <p className="text-sm text-yellow-700">Deliveries will begin from November 22, 2025. Please select a date on or after this date.</p>
+                          <p className="text-sm text-yellow-700">Deliveries will begin from November 23, 2025. Please select a date on or after this date.</p>
                         </div>
                       </div>
 
@@ -1074,13 +1074,13 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           type="date"
                           className="w-full mt-1 p-3 border rounded-md"
                           value={deliveryDate}
-                          min="2025-11-22" // Set minimum date
+                          min="2025-11-23" // Set minimum date
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const selectedDate = new Date(e.currentTarget.value);
-                            const minDate = new Date('2025-11-22');
+                            const minDate = new Date('2025-11-23');
 
                             if (selectedDate < minDate) {
-                              setCartValidationError('Please select a date on or after November 22, 2025');
+                              setCartValidationError('Please select a date on or after November 23, 2025');
                               return;
                             }
 
@@ -1103,12 +1103,12 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           }}
                           onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
                             // Ensure the min date is properly enforced for mobile browsers
-                            const minDate = new Date('2025-11-22');
+                            const minDate = new Date('2025-11-23');
                             e.currentTarget.min = minDate.toISOString().split('T')[0];
                           }}
                           onClick={(e: React.MouseEvent<HTMLInputElement>) => {
                             // For mobile browsers that don't respect min attribute in date picker
-                            const minDate = new Date('2025-11-22');
+                            const minDate = new Date('2025-11-23');
                             const selectedDate = e.currentTarget.value ? new Date(e.currentTarget.value) : null;
 
                             // If no date selected or selected date is before min, set to min date
@@ -1120,7 +1120,7 @@ export function CheckoutFlow({ steps, onComplete, onBack }: CheckoutFlowProps) {
                           }}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Select your preferred delivery date (available from November 22, 2025)
+                          Select your preferred delivery date (available from November 23, 2025)
                         </p>
                       </div>
                     </div>
